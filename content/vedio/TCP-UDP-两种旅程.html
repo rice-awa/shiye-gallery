@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>一枚数据包的两种旅程 · TCP / UDP</title>
+<style>
+:root{color-scheme:light;--paper:#f4f2ec;--ink:#242823;--blue:#315aec;--orange:#ef744f}*{box-sizing:border-box}body{margin:0;background:#e7e5de;color:var(--ink);font-family:Arial,"Microsoft YaHei","PingFang SC",sans-serif}button,input{font:inherit}button{cursor:pointer;border:0}main{min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:26px 4vw;gap:18px}.top{width:min(1440px,100%);display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;color:#656960}.top b{font-weight:600;color:#30352d}.player{position:relative;width:min(1440px,100%);aspect-ratio:16/9;overflow:hidden;background:var(--paper);box-shadow:0 20px 65px #30352713;border-radius:5px}canvas{display:block;width:100%;height:100%}.start{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;padding-bottom:12%;background:linear-gradient(transparent 60%,#f4f2ec77);transition:opacity .3s}.start.hidden{opacity:0;pointer-events:none}.start button{background:#272c24;color:white;padding:16px 25px;border-radius:40px;box-shadow:0 8px 24px #2222;display:flex;align-items:center;gap:16px;font-size:13px;letter-spacing:1px}.start button span{font-size:10px;opacity:.55;letter-spacing:0}.controls{width:min(1440px,100%);display:flex;align-items:center;gap:16px}.controls button{background:transparent;color:#30382c;width:38px;height:36px;border-radius:50%;font-size:16px}.controls button:hover{background:#d9d9d0}#sound{width:auto;font-size:11px;white-space:nowrap}#time{font-family:monospace;font-size:11px;white-space:nowrap;color:#656960}input[type=range]{accent-color:var(--blue);height:3px;flex:1;min-width:40px;cursor:pointer}button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:5px}.bottom{width:min(1440px,100%);display:flex;justify-content:space-between;color:#7d8076;font-size:10px;letter-spacing:1px}.chapters{display:flex;gap:18px}.chapters button{background:none;color:inherit;font-size:10px;padding:0}.chapters button:hover{color:var(--blue)}.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.player:fullscreen{width:100vw;height:100vh;border-radius:0;display:flex;align-items:center;justify-content:center;background:var(--paper)}.player:fullscreen canvas{width:min(100vw,177.777vh);height:min(100vh,56.25vw)}.player:fullscreen .fs-exit{display:block}.fs-exit{display:none;position:absolute;right:20px;bottom:20px;background:#252922;color:white;border-radius:20px;padding:10px 16px}@media(max-width:650px){main{padding:16px 10px;gap:12px}.top{font-size:8px;letter-spacing:1px}.top span{display:none}.bottom>span{display:none}.chapters{gap:12px}.start button{padding:10px 15px;font-size:11px}.start button span{display:none}.controls{gap:5px}.start{padding-bottom:8%}}
+</style></head><body><main>
+<header class="top"><b>NETWORK NOTES / 001</b><span>A SMALL PACKET. TWO DIFFERENT PROMISES.</span><b>TCP × UDP</b></header>
+<section class="player" id="player" aria-label="TCP 与 UDP 动画播放器"><canvas id="film" width="1600" height="900" aria-label="一枚数据包的两种旅程。下方提供播放与时间轴控制。"></canvas><div class="start" id="start"><button id="begin">▶ 开启这段旅程 <span>54 SEC · BGM ON</span></button></div><button class="fs-exit" id="fsExit">退出全屏</button></section>
+<div class="controls"><button id="play" aria-label="播放">▶</button><button id="replay" aria-label="从头播放">↺</button><span id="time">00:00 / 00:54</span><input id="scrub" aria-label="播放进度" type="range" min="0" max="54" step="0.01" value="0"><button id="sound" aria-label="关闭音乐" aria-pressed="true">♫ 音乐开</button><button id="full" aria-label="全屏">⛶</button></div>
+<footer class="bottom"><nav class="chapters" aria-label="章节"><button data-t="0">01 · 出发</button><button data-t="5">02 · TCP</button><button data-t="26">03 · UDP</button><button data-t="39">04 · 如何选择</button><button data-t="45">05 · 尾声</button></nav><span>空格 播放 / 暂停　·　← → 跳转 5 秒　·　F 全屏</span></footer>
+<article class="sr"><h1>一枚数据包的两种旅程</h1><p>TCP 先通过三次握手建立连接，提供可靠、有序的字节流。传输中可能丢失，TCP 会重传；后到的字节可以缓存，补齐后再按序交付。UDP 无需建立传输层连接，独立发送数据报，本身不保证送达、顺序或重传。实时应用可自行处理丢失。完整文件通常适合 TCP，实时语音、游戏常使用 UDP；具体性能取决于网络与应用设计。HTTP/3 使用基于 UDP 的 QUIC，并在其上实现可靠传输。</p></article>
+</main><script>// onetake · © 2026 Patrick (github.com/feitangyuan) · PolyForm Noncommercial 1.0.0 · lineage otk-7f3e1c
+/* onetake · lib/motion.js — the genre's moves as pure functions of time.
+ *
+ * Numbers in, numbers out. Nothing here touches the DOM or a canvas, so one call drives
+ * `el.style.transform` or `ctx.setTransform` alike. No state and no Math.random: the same arguments
+ * always give the same answer, which is what `__seek(t)` needs. The four sims and the camera rig integrate, so
+ * they run once at 240 Hz and are sampled by time.
+ *
+ * Every move comes from a film that was accepted — motion-web-15s (MW), pocket-weather-15s (PW), one-dot-15s (OD) —
+ * and has a sheet in gallery/sheets/<name>.png. Catalogue, curve table, carry grammar:
+ * references/motion-library.md.
+ *
+ * Classic script (file:// pages cannot import modules): <script src="motion.js"><\/script> → window.OM.
+ * Node: const OM = require('./motion.js').
+ *
+ *   curves   ease.* · bezier · tween · t80 · spring · springVel · ring · settle · spline · rng
+ *   enter    wordRise · letterDrop · popIn · liftOut · maskRise · typeOn · tick · flyThrough
+ *   carry    morphRect · iris · zoomThrough · hop · gather · ribbon · seal · staccato
+ *   contact  impact · impactSplit · press · cursor · squash · sim.{magnet, follow, jelly, verlet}
+ *   camera   camera · view · dof · whip · shake · drift · lattice · project · unproject · projectBox · screenTravel
+ *   fluid    swiftSpring · lightField · ripple · silk · carouselLoop
+ */
+(function (root) {
+  'use strict';
+
+  // ─────────────────────────────── scalars ───────────────────────────────
+  const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const seg = (t, t0, t1) => (t1 === t0 ? (t >= t1 ? 1 : 0) : clamp((t - t0) / (t1 - t0), 0, 1));
+  const sstep = (e0, e1, x) => { const k = clamp((x - e0) / (e1 - e0), 0, 1); return k * k * (3 - 2 * k); };
+  const ssstep = (e0, e1, x) => { const k = clamp((x - e0) / (e1 - e0), 0, 1); return k * k * k * (k * (k * 6 - 15) + 10); };
+
+  // ─────────────────────────────── curves ───────────────────────────────
+  // t80 = share of the duration spent before 80 % of the distance is covered. Low = snaps then settles
+  // (launch-clip feel); ~.7 = symmetric S-curve (soft, reads as a web transition when used for travel).
+  const powOut = n => u => 1 - Math.pow(1 - u, n);
+  const powInOut = n => u => (u < 0.5 ? Math.pow(2, n - 1) * Math.pow(u, n) : 1 - Math.pow(-2 * u + 2, n) / 2);
+  const EXPO = 1 - Math.pow(2, -10);
+  const ease = {
+    linear: u => u,                                              // t80 .80
+    smooth: u => u * u * (3 - 2 * u),                            // t80 .71 smoothstep
+    smoother: u => u * u * u * (u * (u * 6 - 15) + 10),          // t80 .67 smootherstep — PW's travel curve
+    sineInOut: u => -(Math.cos(Math.PI * u) - 1) / 2,
+    cubicInOut: powInOut(3),                                     // camera legs that start and stop at rest
+    quintInOut: powInOut(5),
+    quadOut: powOut(2),                                          // t80 .55
+    cubicOut: powOut(3),                                         // t80 .42
+    quartOut: powOut(4),                                         // t80 .33
+    quintOut: powOut(5),                                         // t80 .28
+    expoOut: u => (u <= 0 ? 0 : u >= 1 ? 1 : (1 - Math.pow(2, -10 * u)) / EXPO),   // t80 .23
+    expoIn: u => (u <= 0 ? 0 : u >= 1 ? 1 : (Math.pow(2, 10 * u) - 1) / 1023),
+    expoInOut: u => (u < 0.5 ? ease.expoIn(2 * u) / 2 : 1 - ease.expoIn(2 - 2 * u) / 2),  // whips
+    circOut: u => Math.sqrt(1 - Math.pow(1 - clamp(u), 2)),
+    backOut: u => { const s = 1.70158; return 1 + (s + 1) * Math.pow(u - 1, 3) + s * Math.pow(u - 1, 2); },
+    back: (s = 1.70158) => u => 1 + (s + 1) * Math.pow(u - 1, 3) + s * Math.pow(u - 1, 2),
+  };
+
+  // CSS cubic-bezier(x1, y1, x2, y2) as a function of u — for curves taken from a spec or a reference.
+  function bezier(x1, y1, x2, y2) {
+    const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx, cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+    const sx = s => ((ax * s + bx) * s + cx) * s, sy = s => ((ay * s + by) * s + cy) * s, dsx = s => (3 * ax * s + 2 * bx) * s + cx;
+    const solve = x => {
+      let s = x;
+      for (let i = 0; i < 8; i++) {
+        const e = sx(s) - x; if (Math.abs(e) < 1e-7) return s;
+        const d = dsx(s); if (Math.abs(d) < 1e-6) break;
+        s -= e / d; if (s < 0 || s > 1) break;
+      }
+      let lo = 0, hi = 1; s = x;
+      for (let i = 0; i < 60; i++) { const v = sx(s); if (Math.abs(v - x) < 1e-7) return s; if (x > v) lo = s; else hi = s; s = (lo + hi) / 2; }
+      return s;
+    };
+    return u => (u <= 0 ? 0 : u >= 1 ? 1 : sy(solve(u)));
+  }
+
+  const tween = (t, t0, t1, curve = ease.expoOut) => curve(seg(t, t0, t1));
+
+  function t80(curve, frac = 0.8, steps = 4000) {
+    for (let i = 0; i <= steps; i++) { const u = i / steps; if (curve(u) >= frac) return u; }
+    return 1;
+  }
+
+  // Damped spring step response 0 → 1 from rest. zeta < 1 overshoots (.4 bouncy … .8 firm), 1 is critical.
+  function spring(tau, zeta = 0.6, omega = 20) {
+    if (tau <= 0) return 0;
+    if (zeta < 1) { const wd = omega * Math.sqrt(1 - zeta * zeta); return 1 - Math.exp(-zeta * omega * tau) * (Math.cos(wd * tau) + (zeta * omega / wd) * Math.sin(wd * tau)); }
+    if (zeta === 1) return 1 - Math.exp(-omega * tau) * (1 + omega * tau);
+    const q = omega * Math.sqrt(zeta * zeta - 1), r1 = -zeta * omega + q, r2 = -zeta * omega - q;
+    return 1 - (r2 * Math.exp(r1 * tau) - r1 * Math.exp(r2 * tau)) / (r2 - r1);
+  }
+
+  // d/dtau of spring(): progress per second. Use it for squash-from-velocity.
+  function springVel(tau, zeta = 0.6, omega = 20) {
+    if (tau <= 0) return 0;
+    if (zeta < 1) { const s = Math.sqrt(1 - zeta * zeta); return (omega / s) * Math.exp(-zeta * omega * tau) * Math.sin(omega * s * tau); }
+    if (zeta === 1) return omega * omega * tau * Math.exp(-omega * tau);
+    const q = omega * Math.sqrt(zeta * zeta - 1), r1 = -zeta * omega + q, r2 = -zeta * omega - q;
+    return omega * omega * (Math.exp(r1 * tau) - Math.exp(r2 * tau)) / (r1 - r2);
+  }
+
+  // Decaying oscillation around 0 — a click, a landing, a wobble that rings out.
+  function ring(tau, decay = 9, omega = 26) { return tau <= 0 ? 0 : Math.exp(-decay * tau) * Math.sin(omega * tau); }
+
+  // Seconds until spring() stays within eps of 1 — for planning how long a beat must hold.
+  function settle(zeta = 0.6, omega = 20, eps = 0.02) {
+    let last = 0;
+    for (let i = 1; i <= 20000; i++) { const t = i / 1000; if (Math.abs(1 - spring(t, zeta, omega)) > eps) last = t; }
+    return last;
+  }
+
+  // Hermite curve through {t, x, y} knots — the hand path.
+  function spline(knots, t) {
+    if (t <= knots[0].t) return [knots[0].x, knots[0].y];
+    const L = knots.length; if (t >= knots[L - 1].t) return [knots[L - 1].x, knots[L - 1].y];
+    let i = 0; while (knots[i + 1].t < t) i++;
+    const k0 = knots[i], k1 = knots[i + 1], h = k1.t - k0.t, u = (t - k0.t) / h, km = knots[Math.max(0, i - 1)], kp = knots[Math.min(L - 1, i + 2)];
+    const m0x = (k1.x - km.x) / (k1.t - km.t) * h, m0y = (k1.y - km.y) / (k1.t - km.t) * h, m1x = (kp.x - k0.x) / (kp.t - k0.t) * h, m1y = (kp.y - k0.y) / (kp.t - k0.t) * h;
+    const h00 = 2 * u ** 3 - 3 * u ** 2 + 1, h10 = u ** 3 - 2 * u ** 2 + u, h01 = -2 * u ** 3 + 3 * u ** 2, h11 = u ** 3 - u ** 2;
+    return [h00 * k0.x + h10 * m0x + h01 * k1.x + h11 * m1x, h00 * k0.y + h10 * m0y + h01 * k1.y + h11 * m1y];
+  }
+
+  // xorshift32 — for layout jitter decided once in setup, never on the render path.
+  function rng(seed = 1) {
+    let s = (seed >>> 0) || 1;
+    return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 4294967296; };
+  }
+
+  // ─────────────────────────────── enter ───────────────────────────────
+  // MW · a word lands: spring rise + a little scale. Opacity leads the spring so it never reads as a fade.
+  function wordRise(t, t0, { zeta = 0.6, omega = 22, dist = 26, s0 = 0.94, ds = 0.06, fade = 1.5 } = {}) {
+    const k = spring(t - t0, zeta, omega);
+    return { k, op: clamp(k * fade, 0, 1), y: (1 - k) * dist, s: s0 + ds * k };
+  }
+
+  // MW · wordmark letter i drops in; speed flattens it (sy) and widens it (sx), recovering as it settles.
+  function letterDrop(t, t0, i, { stagger = 0.055, zeta = 0.5, omega = 26, dist = 46, squash = 0.0075, max = 0.22, widen = 0.6, fade = 1.6, h = 0.012 } = {}) {
+    const tau = t - t0 - i * stagger;
+    const k = spring(tau, zeta, omega), dk = (spring(tau, zeta, omega) - spring(tau - h, zeta, omega)) / h;
+    const sq = clamp(Math.abs(dk) * squash, 0, max);
+    return { k, sq, op: clamp(k * fade, 0, 1), y: (1 - k) * dist, sx: 1 + sq * widen, sy: 1 - sq };
+  }
+
+  // MW · card entrance: spring rise with scale.
+  function popIn(t, t0, { zeta = 0.62, omega = 18, rise = 36, s0 = 0.94, ds = 0.06, fade = 1.5 } = {}) {
+    const k = spring(t - t0, zeta, omega);
+    return { k, op: clamp(k * fade, 0, 1), s: s0 + ds * k, dy: (1 - k) * rise };
+  }
+
+  // MW · card exit: lifts, grows a touch and blurs away over `dur`.
+  function liftOut(t, t1, { dur = 0.22, dir = -1, dist = 90, blur = 10, grow = 0.03 } = {}) {
+    const k = ssstep(t1, t1 + dur, t);
+    return { k, op: 1 - k, dy: dir * k * dist, blur: k * blur, s: 1 + grow * k };
+  }
+
+  // PW · line i rises into place from behind a clip mask. y is a fraction of `dist` (pass the line height).
+  function maskRise(t, t0, i = 0, { stagger = 0.13, zeta = 0.47, omega = 17, dist = 1 } = {}) {
+    const k = spring(t - t0 - i * stagger, zeta, omega);
+    return { k, y: (1 - k) * dist, visible: k > 0 };
+  }
+
+  // MW · typed prompt: characters at cps, caret solid while typing, blinking after.
+  function typeOn(t, t0, text, { cps = 38, blink = 2.4 } = {}) {
+    const n = clamp(Math.floor((t - t0) * cps), 0, text.length);
+    return { n, str: text.slice(0, n), done: n >= text.length, caret: (n < text.length || Math.floor(t * blink) % 2 === 0) ? 1 : 0 };
+  }
+
+  // MW · checkbox tick at tl: pops from .8 with a spring.
+  function tick(t, tl, { zeta = 0.5, omega = 28 } = {}) {
+    const on = t >= tl, k = spring(t - tl, zeta, omega);
+    return { on, k, s: on ? (0.8 + 0.2 * k + 0.25 * (1 - k)) : 1 };
+  }
+
+  // MW · a screen flies in tilted from the right, holds, flies out left. For CSS:
+  // translate(x) perspective(2200px) rotateY(rotY) rotateX(rotX) scale(s), filter blur(blur).
+  function flyThrough(t, t0, hold, { from = 1500, to = 0, exit = -1700, zeta = 0.78, omega = 14, out = 0.28,
+    blurIn = 10, blurOut = 12, rotY0 = -18, rotY1 = -9, rotOut = 10, rotX = 4, s0 = 0.92, pre = 0.02, post = 0.35 } = {}) {
+    const t1 = t0 + hold, visible = t >= t0 - pre && t < t1 + post;
+    const kin = spring(t - t0, zeta, omega), kout = ssstep(t1, t1 + out, t), kc = Math.min(1, kin);
+    return { visible, kin, kout, x: lerp(from, to, kin) + kout * exit, blur: Math.max((1 - kc) * blurIn, kout * blurOut),
+      rotY: lerp(rotY0, rotY1, kc) + kout * rotOut, rotX, s: lerp(s0, 1, kc), op: 1 - kout };
+  }
+
+  // ─────────────────────────────── carry — the next shot grows out of this one ───────────────────────────────
+  // PW · container transform: rect A (a card, a button) becomes rect B (the page). {x, y, w, h, r?}, x/y top-left.
+  function morphRect(t, t0, t1, A, B, { curve = ease.expoOut, spring: sp = null } = {}) {
+    const k = sp ? spring(t - t0, sp.zeta ?? 0.7, sp.omega ?? 16) : curve(seg(t, t0, t1));
+    const x = lerp(A.x, B.x, k), y = lerp(A.y, B.y, k), w = lerp(A.w, B.w, k), h = lerp(A.h, B.h, k);
+    return { k, x, y, w, h, r: lerp(A.r ?? 0, B.r ?? 0, k), cx: x + w / 2, cy: y + h / 2 };
+  }
+
+  // PW · a circular stage opens from the subject at (cx, cy) until it covers the whole frame.
+  function iris(t, t0, t1, cx, cy, { W = 1920, H = 1080, curve = ease.expoOut, r0 = 0 } = {}) {
+    const k = curve(seg(t, t0, t1));
+    const far = Math.max(Math.hypot(cx, cy), Math.hypot(W - cx, cy), Math.hypot(cx, H - cy), Math.hypot(W - cx, H - cy)) + 2;
+    return { k, cx, cy, r: lerp(r0, far, k), covered: k >= 1 };
+  }
+
+  // Camera pushes into `target` {x, y, w, h} until it fills the frame; its inside becomes the next scene.
+  // screen = world·s + (tx, ty) → CSS matrix(...matrix) with transform-origin 0 0, or ctx.setTransform(...matrix).
+  function zoomThrough(t, t0, t1, target, { W = 1920, H = 1080, curve = ease.expoInOut, fit = 'cover' } = {}) {
+    const k = curve(seg(t, t0, t1));
+    const sEnd = fit === 'contain' ? Math.min(W / target.w, H / target.h) : Math.max(W / target.w, H / target.h);
+    const s = Math.exp(Math.log(sEnd) * k);                       // log space: the zoom reads as one speed
+    const tcx = target.x + target.w / 2, tcy = target.y + target.h / 2;
+    const px = lerp(tcx, W / 2, k), py = lerp(tcy, H / 2, k);      // the target's centre travels to the frame centre
+    const tx = px - s * tcx, ty = py - s * tcy;
+    return { k, s, tx, ty, matrix: [s, 0, 0, s, tx, ty] };
+  }
+
+  // PW · the subject hops between slots on an arc.
+  function hop(t, t0, t1, from, to, { height = 200, curve = ease.smoother } = {}) {
+    const k = curve(seg(t, t0, t1));
+    return { k, x: lerp(from.x, to.x, k), y: lerp(from.y, to.y, k) - Math.sin(k * Math.PI) * height };
+  }
+
+  // PW · item i of n travels on an arc to its new place, fanning by index; stagger per item.
+  function gather(t, t0, t1, i, n, from, to, { stagger = 0.08, arc = 120, spin = 0.4, curve = ease.smoother } = {}) {
+    const k = curve(seg(t, t0 + i * stagger, t1 + i * stagger)), o = i - (n - 1) / 2, bump = Math.sin(k * Math.PI);
+    return { k, x: lerp(from.x, to.x, k), y: lerp(from.y, to.y, k) - bump * arc, rot: bump * o * spin };
+  }
+
+  // PW · an elastic rail of panels. Each switch time advances `shift` by one with a ring-out; text lags behind.
+  // Panel j sits at x = centre + (j − shift)·width + wobble.
+  function ribbon(t, switches, { dur = 0.35, amp = 55, decay = 7, omega = 22, tilt = 0.08, stretchX = 0.24, stretchY = 0.15, lag = 1.8, curve = ease.smoother } = {}) {
+    let shift = 0, r = 0;
+    for (const ts of switches) { shift += curve(seg(t, ts, ts + dur)); r += ring(t - ts, decay, omega); }
+    const stretch = Math.abs(r);
+    return { shift, index: Math.round(shift), wobble: r * amp, rot: r * tilt, sx: 1 + stretch * stretchX, sy: 1 - stretch * stretchY, textDx: -r * amp * lag };
+  }
+
+  // PW · the cast folds into a brand seal: a disc grows and turns.
+  function seal(t, t0, t1, { r = 235, turns = 1, curve = ease.smoother } = {}) {
+    const k = curve(seg(t, t0, t1));
+    return { k, r: r * k, rot: k * turns * Math.PI * 2 };
+  }
+
+  // MW · staccato hits: the word whose time has come. list = [[t, word], …]. Hard cuts, in a burst.
+  function staccato(t, list) {
+    let word = '', i = -1;
+    for (let j = 0; j < list.length; j++) if (t >= list[j][0]) { word = list[j][1]; i = j; }
+    return { word, i };
+  }
+
+  // ─────────────────────────────── contact — one thing causes another ───────────────────────────────
+  // PW · the ring of a landing. sx/sy squash the lander; feed r into whatever it lands on.
+  function impact(t, tHit, { decay = 7, omega = 22, sqx = 0.13, sqy = 0.16 } = {}) {
+    const r = ring(t - tHit, decay, omega);
+    return { r, sx: 1 + r * sqx, sy: 1 - r * sqy };
+  }
+
+  // PW · a landing at cx splits the headline: the glyph at x is pushed apart, bounces by its distance, rejoins.
+  function impactSplit(t, tHit, x, cx, { width = 600, spread = 65, bounce = 65, rot = 0.18, falloff = 3,
+    open = [-0.01, 0.48], close = [0.63, 0.98], decay = 7, omega = 22, curve = ease.smoother } = {}) {
+    const d = (x - cx) / width, r = ring(t - tHit, decay, omega);
+    const apart = curve(seg(t, tHit + open[0], tHit + open[1])) * (1 - curve(seg(t, tHit + close[0], tHit + close[1])));
+    return { dx: Math.sign(d) * apart * spread, dy: r * bounce * Math.exp(-d * d * falloff), rot: r * d * rot };
+  }
+
+  // MW · a button pressed at tc: rings in scale, `active` for the colour flash.
+  function press(t, tc, { depth = 0.16, decay = 10, omega = 30, flash = 0.4 } = {}) {
+    const cl = t - tc, sq = cl > 0 ? ring(cl, decay, omega) * depth : 0;
+    return { s: 1 + sq, sq, down: cl > 0, active: cl > 0 && cl < flash };
+  }
+
+  // MW · the hand: spline through knots, dips to `down` for `hold` s at each click.
+  function cursor(t, knots, clicks = [], { down = 0.84, hold = 0.14 } = {}) {
+    const p = spline(knots, t); let s = 1;
+    for (const c of clicks) { const d = t - c; if (d >= 0 && d < hold) s = down; }
+    return { x: p[0], y: p[1], s };
+  }
+
+  // MW · stretch along the direction of travel, thin across it (velocity in px/s).
+  function squash(vx, vy, { k = 0.0012, max = 0.45, kY = 0.0008, maxY = 0.3 } = {}) {
+    const sp = Math.hypot(vx, vy);
+    return { speed: sp, ang: Math.atan2(vy, vx), sx: 1 + clamp(sp * k, 0, max), sy: 1 - clamp(sp * kY, 0, maxY) };
+  }
+
+  // MW · live mechanisms inside a card, driven by the hand. card = {t, out, x, y} (top-left, 460×270 space);
+  // the sim runs t … out + 0.3 once and `at(t)` samples it. Drawing stays in the composition.
+  const SDT = 1 / 240;
+  const sampler = (st, t0, per) => t => st[clamp(Math.floor((t - t0) / per), 0, st.length - 1)];
+  const sim = {
+    SDT,
+    magnet(card, hand, { B = { x: 230, y: 158 }, R = 150, pull = 0.36, K = 120, damp = 0.85 } = {}) {
+      const D = Math.pow(damp, SDT * 60); let x = 0, y = 0, vx = 0, vy = 0; const st = [];
+      for (let t = card.t; t <= card.out + 0.3; t += SDT) {
+        const h = hand(t); const dx = h[0] - (card.x + B.x), dy = h[1] - (card.y + B.y), d = Math.hypot(dx, dy); let tx = 0, ty = 0;
+        if (d < R) { const f = pull * (1 - (d / R) ** 2); tx = dx * f; ty = dy * f; }
+        vx += (tx - x) * K * SDT; vy += (ty - y) * K * SDT; vx *= D; vy *= D; x += vx * SDT; y += vy * SDT; st.push([x, y]);
+      }
+      return { st, per: SDT, B, at: sampler(st, card.t, SDT) };
+    },
+    follow(card, hand, { K = 70, damp = 0.88, home = [230, 140], box = [30, 430, 50, 240], reach = [40, 500, 40, 310] } = {}) {
+      const D = Math.pow(damp, SDT * 60); let x = home[0], y = home[1], vx = 0, vy = 0; const st = [];
+      for (let t = card.t; t <= card.out + 0.3; t += SDT) {
+        const h = hand(t); let tx = clamp(h[0] - card.x, box[0], box[1]), ty = clamp(h[1] - card.y, box[2], box[3]);
+        const inside = h[0] > card.x - reach[0] && h[0] < card.x + reach[1] && h[1] > card.y - reach[2] && h[1] < card.y + reach[3];
+        if (!inside) { tx = home[0]; ty = home[1]; }
+        vx += (tx - x) * K * SDT; vy += (ty - y) * K * SDT; vx *= D; vy *= D; x += vx * SDT; y += vy * SDT; st.push([x, y, vx, vy]);
+      }
+      return { st, per: SDT, at: sampler(st, card.t, SDT) };
+    },
+    // ring of radial springs with neighbour coupling, dented where the hand touches the surface
+    jelly(card, hand, { N = 48, C = { x: 230, y: 150 }, R0 = 78, K = 42, CP = 1800, damp = 0.962, reach = 60, dent = 14 } = {}) {
+      const D = Math.pow(damp, SDT * 60); const r = new Float32Array(N), v = new Float32Array(N); const st = []; let step = 0;
+      for (let t = card.t; t <= card.out + 0.3; t += SDT, step++) {
+        const h = hand(t); const hx = h[0] - (card.x + C.x), hy = h[1] - (card.y + C.y);
+        for (let i = 0; i < N; i++) {
+          const th = i / N * Math.PI * 2; const px = Math.cos(th) * R0 * (1 + r[i]), py = Math.sin(th) * R0 * (1 + r[i]); const d = Math.hypot(hx - px, hy - py);
+          let push = 0; if (d < reach) { push = -(1 - d / reach) * dent; }
+          const lap = r[(i + N - 1) % N] + r[(i + 1) % N] - 2 * r[i]; v[i] += (-r[i] * K + lap * CP + push) * SDT; v[i] *= D;
+        }
+        for (let i = 0; i < N; i++) r[i] += v[i] * SDT;
+        if (step % 4 === 0) st.push(Float32Array.from(r));
+      }
+      return { st, per: SDT * 4, N, C, R0, at: sampler(st, card.t, SDT * 4) };
+    },
+    // N nodes hanging from (ax, ay), pushed aside by the hand; samples are [x0, y0, x1, y1, …]
+    verlet(card, hand, { N = 16, L = 13, ax = 230, ay = 40, damp = 0.985, gravity = 1400, reach = 34, push = 2.2, iters = 3 } = {}) {
+      const px = new Float32Array(N), py = new Float32Array(N), ox = new Float32Array(N), oy = new Float32Array(N);
+      for (let i = 0; i < N; i++) { px[i] = ox[i] = ax; py[i] = oy[i] = ay + i * L; }
+      const st = []; let step = 0;
+      for (let t = card.t; t <= card.out + 0.3; t += SDT, step++) {
+        const h = hand(t); const hx = h[0] - card.x, hy = h[1] - card.y;
+        for (let i = 1; i < N; i++) {
+          let vx = (px[i] - ox[i]) * damp, vy = (py[i] - oy[i]) * damp; ox[i] = px[i]; oy[i] = py[i]; px[i] += vx; py[i] += vy + gravity * SDT * SDT;
+          const dx = px[i] - hx, dy = py[i] - hy, d = Math.hypot(dx, dy); if (d < reach && d > 0.01) { const f = (reach - d) / reach * push; px[i] += dx / d * f; py[i] += dy / d * f; }
+        }
+        for (let it = 0; it < iters; it++) {
+          px[0] = ax; py[0] = ay;
+          for (let i = 0; i < N - 1; i++) {
+            const dx = px[i + 1] - px[i], dy = py[i + 1] - py[i], d = Math.hypot(dx, dy) || 1e-6, c = (d - L) / d * 0.5;
+            if (i === 0) { px[1] -= dx * c * 2; py[1] -= dy * c * 2; } else { px[i] += dx * c; py[i] += dy * c; px[i + 1] -= dx * c; py[i + 1] -= dy * c; }
+          }
+        }
+        if (step % 4 === 0) { const s = new Float32Array(N * 2); for (let i = 0; i < N; i++) { s[i * 2] = px[i]; s[i * 2 + 1] = py[i]; } st.push(s); }
+      }
+      return { st, per: SDT * 4, N, at: sampler(st, card.t, SDT * 4) };
+    },
+  };
+
+  // ─────────────────────────────── camera ───────────────────────────────
+  // Keys {t, x, y, zoom?, rot?, curve?}; (x, y) is the world point at the frame centre. Zoom interpolates in log space.
+  function camera(t, keys, { curve = ease.cubicInOut, W = 1920, H = 1080 } = {}) {
+    const pick = k => ({ x: k.x ?? W / 2, y: k.y ?? H / 2, zoom: k.zoom ?? 1, rot: k.rot ?? 0 });
+    if (!keys.length) return { x: W / 2, y: H / 2, zoom: 1, rot: 0 };
+    if (t <= keys[0].t) return pick(keys[0]);
+    const L = keys.length; if (t >= keys[L - 1].t) return pick(keys[L - 1]);
+    let i = 0; while (keys[i + 1].t < t) i++;
+    const A = pick(keys[i]), B = pick(keys[i + 1]), k = (keys[i + 1].curve || curve)(seg(t, keys[i].t, keys[i + 1].t));
+    return { x: lerp(A.x, B.x, k), y: lerp(A.y, B.y, k), zoom: Math.exp(lerp(Math.log(A.zoom), Math.log(B.zoom), k)), rot: lerp(A.rot, B.rot, k) };
+  }
+
+  // Affine matrix [a, b, c, d, e, f] for a layer at `depth` seen through `cam`: CSS matrix(...) / ctx.setTransform(...).
+  // depth 0 = focus plane; > 0 farther (moves and zooms less); < 0 nearer (moves more).
+  function view(cam, { W = 1920, H = 1080, depth = 0 } = {}) {
+    const f = 1 / (1 + Math.max(-0.9, depth));
+    const cx = W / 2 + (cam.x - W / 2) * f, cy = H / 2 + (cam.y - H / 2) * f;
+    const z = Math.exp(Math.log(cam.zoom) * f), c = Math.cos(cam.rot * f) * z, s = Math.sin(cam.rot * f) * z;
+    return [c, s, -s, c, W / 2 - (c * cx - s * cy), H / 2 - (s * cx + c * cy)];
+  }
+
+  // Depth-of-field blur in px for a layer at `depth` when the camera focuses at `focus`.
+  const dof = (depth, focus = 0, { k = 10, max = 14 } = {}) => Math.min(max, Math.abs(depth - focus) * k);
+
+  // A whip: all of `dist` in `dur` on an expo in-out. Only reads with shutter blur (render.py --shutter).
+  function whip(t, t0, dur, dist, { curve = ease.expoInOut } = {}) {
+    const k = curve(seg(t, t0, t0 + dur));
+    return { k, d: dist * k };
+  }
+
+  // Camera shake after a hit: decaying, deterministic, starts from zero.
+  function shake(t, tHit, { amp = 12, decay = 9, freq = 19, seed = 1 } = {}) {
+    const tau = t - tHit; if (tau <= 0) return { x: 0, y: 0, rot: 0 };
+    const r = rng(seed), fx = freq * (1 + 0.1 * r()), fy = freq * (1.31 + 0.1 * r()), fr = freq * (0.77 + 0.1 * r());
+    const e = amp * Math.exp(-decay * tau), w = 2 * Math.PI * tau;
+    return { x: e * Math.sin(w * fx), y: 0.7 * e * Math.sin(w * fy), rot: 0.0015 * e * Math.sin(w * fr) };
+  }
+
+  // MW · slow push during a hold: scale 1 → 1 + amount across t0 … t1.
+  const drift = (t, t0, t1, amount = 0.07) => 1 + amount * seg(t, t0, t1);
+
+  // Through a view() matrix M: world → screen, screen → world, and a world box's bounds on screen.
+  const project = (M, x, y) => [M[0] * x + M[2] * y + M[4], M[1] * x + M[3] * y + M[5]];
+  const unproject = (M, x, y) => { const d = M[0] * M[3] - M[1] * M[2], u = x - M[4], v = y - M[5]; return [(M[3] * u - M[2] * v) / d, (M[0] * v - M[1] * u) / d]; };
+  function projectBox(M, b) {
+    const P = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]].map(p => project(M, p[0], p[1]));
+    const xs = P.map(p => p[0]), ys = P.map(p => p[1]), x0 = Math.min(...xs), y0 = Math.min(...ys);
+    return { x: x0, y: y0, w: Math.max(...xs) - x0, h: Math.max(...ys) - y0, op: b.op };
+  }
+
+  // How far the frame's corners move on screen between cameras c0 and c1 (following the world points under them at
+  // cMid): the camera's share of a page's window.__motion, from which render.py sizes each frame's shutter.
+  function screenTravel(c0, c1, cMid, { W = 1920, H = 1080, depth = 0 } = {}) {
+    const M0 = view(c0, { W, H, depth }), M1 = view(c1, { W, H, depth }), Mm = view(cMid, { W, H, depth });
+    let d = 0;
+    for (const [sx, sy] of [[0, 0], [W, 0], [0, H], [W, H]]) {
+      const [wx, wy] = unproject(Mm, sx, sy), p = project(M0, wx, wy), r = project(M1, wx, wy);
+      d = Math.max(d, Math.hypot(p[0] - r[0], p[1] - r[1]));
+    }
+    return d;
+  }
+
+  // OD · an operator, not keyframes. want(t) → {x, y, zoom, w}: what to frame, how tight, how fast to chase (rad/s).
+  // A spring per axis chases it — position ζ .8; zoom in log space, ζ .95 at .8 w — integrated once at `hz` and
+  // sampled, so moves lag, lean and settle while every frame stays a function of t. hits [[t, px, decay], …] shake.
+  // Output is quantised below what shows (1/16 px, 0.05 % zoom): a settled camera repeats its frame exactly and
+  // render.py skips the shutter. A snap faster than the spring outruns it: want the landing point ~0.15 s before
+  // the snap rather than chasing it (the one-dot film's first camera render lost its dot that way).
+ 
+  // OD · a far grid seen through `cam`: under ctx.setTransform(...matrix), a dot of radius r at every lattice point from
+  // (x0, y0) to (x1, y1) in steps of `spacing` — dots stay `px` on screen whatever the zoom. On an empty ground a
+  // camera move doesn't read without something farther back to slide against (one-dot: 48, depth 1.2, 1.4 px).
+  function lattice(cam, { depth = 1.2, spacing = 48, px = 1.4, W = 1920, H = 1080 } = {}) {
+    const M = view(cam, { W, H, depth }), c = [[0, 0], [W, 0], [0, H], [W, H]].map(p => unproject(M, p[0], p[1]));
+    const xs = c.map(p => p[0]), ys = c.map(p => p[1]);
+    return { matrix: M, spacing, r: px / Math.hypot(M[0], M[1]),
+      x0: Math.floor(Math.min(...xs) / spacing) * spacing, x1: Math.max(...xs), y0: Math.floor(Math.min(...ys) / spacing) * spacing, y1: Math.max(...ys) };
+  }
+
+  // ─────────────────────────────── fluid (FL · ebb) ───────────────────────────────
+  // SwiftUI's named springs: Spring(duration d, bounce b) is ζ = 1 − b, ω = 2π / d. .smooth b 0, .snappy .15, .bouncy .3.
+  const SWIFT = { smooth: 0, snappy: 0.15, bouncy: 0.3 };
+  function swiftSpring(tau, kind = 'smooth', { duration = 0.5, bounce = null } = {}) {
+    const b = bounce ?? SWIFT[kind] ?? 0;
+    return spring(tau, 1 - b, 2 * Math.PI / duration);
+  }
+
+  // A persistent ground of light: level 0 = at rest (a low glow, horizon ≈ rest·H), 1 = the frame flooded. Returns the
+  // ellipse (anchored below the frame) to fill with a radial gradient — `stops` are the reference's, warm or green — and
+  // `core`, the half-radius contour where the light is bright enough to turn type white. Flood ≤ 0.4 s, drain ~1 s.
+  function lightField(level, { W = 1920, H = 1080, rest = 0.84, top = -300, r0 = 660, r1 = 1500, tilt = 0.012 } = {}) {
+    const ry = r0 + r1 * level, horizon = lerp(H * rest, top, level);
+    return { cx: W / 2, cy: horizon + 0.62 * ry, rx: ry * 2.3, ry, tilt, horizon, core: 0.5, stops: [0, 0.36, 0.6, 0.8, 1] };
+  }
+
+  // A flood that drains as concentric rings: n radii leaving a point, `stagger` apart, each crossing the frame in `dur`.
+  // Fill the flood outside ring 0, alternate two tints between the rings, and the world shows through the innermost.
+  function ripple(t, t0, { n = 3, stagger = 0.16, dur = 1.25, rMax = 1160, curve = ease.smoother } = {}) {
+    const r = []; for (let k = 0; k < n; k++) r.push(rMax * curve(seg(t, t0 + k * stagger, t0 + k * stagger + dur)));
+    return { r, done: t >= t0 + (n - 1) * stagger + dur };
+  }
+
+  // silk — the "native MeshGradient" look: domain-warped value noise, two octaves, on a tiny grid, contrast-stretched and
+  // ramped. Returns RGBA for gx × gy; putImageData it into a gx × gy canvas and draw that up to the card with blur(28 px at
+  // 520 wide). A ramp whose lightness is not monotonic (a dark fold between two brights) is what reads as cloth.
+  function silkHash(x, y, s) { let h = (x * 374761393 + y * 668265263 + s * 1442695041) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+  function silkNoise(x, y, s) {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const a = silkHash(xi, yi, s), b = silkHash(xi + 1, yi, s), c = silkHash(xi, yi + 1, s), d = silkHash(xi + 1, yi + 1, s);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  }
+  const silkFbm = (x, y, s) => 0.5 * silkNoise(x, y, s) + 0.25 * silkNoise(x * 2.02, y * 2.02, s);
+  function silkRamp(stops, k) {
+    k = clamp(k, 0, 1);
+    for (let i = 1; i < stops.length; i++) if (k <= stops[i][0]) { const [a, A] = stops[i - 1], [b, B] = stops[i], u = (k - a) / (b - a); return A.map((v, j) => v + (B[j] - v) * u); }
+    return stops[stops.length - 1][1];
+  }
+  const SILK = {
+    ember: [[0, [200, 120, 24]], [0.22, [236, 170, 34]], [0.42, [122, 96, 26]], [0.54, [160, 94, 32]], [0.74, [240, 74, 92]], [1, [252, 210, 198]]],
+    peach: [[0, [240, 150, 92]], [0.24, [252, 204, 148]], [0.44, [190, 104, 66]], [0.58, [236, 124, 108]], [0.8, [250, 186, 172]], [1, [255, 240, 228]]],
+    dusk: [[0, [118, 58, 94]], [0.24, [226, 98, 112]], [0.44, [88, 44, 68]], [0.58, [176, 74, 98]], [0.8, [246, 150, 122]], [1, [255, 224, 204]]],
+  };
+  function silk(tau, seed = 3, stops = SILK.peach, { gx = 16, gy = 20, contrast = 3.4, out = null } = {}) {
+    const d = out || new Uint8ClampedArray(gx * gy * 4);
+    for (let j = 0; j < gy; j++) for (let i = 0; i < gx; i++) {
+      const u = i / gx * 1.1, v = j / gy * 1.4;
+      const qx = silkFbm(u + 0.11 * tau, v - 0.07 * tau, seed), qy = silkFbm(u + 5.2 - 0.09 * tau, v + 1.3 + 0.05 * tau, seed);
+      const k = 0.5 + (silkFbm(u + 1.8 * qx + 0.04 * tau, v + 1.8 * qy, seed) - 0.375) * contrast;
+      const c = silkRamp(stops, k), n = (i + j * gx) * 4;
+      d[n] = c[0]; d[n + 1] = c[1]; d[n + 2] = c[2]; d[n + 3] = 255;
+    }
+    return d;
+  }
+  silk.ramps = SILK; silk.ramp = silkRamp;
+
+  // A belt that never rests until it is told to: position and a slowed clock, integrated once so the start (a .smooth
+  // swiftSpring over `rampDur`) and the stop (a smoothstep over `stop`) stay pure functions of t. at(t) → {x, tau}: x in
+  // px travelled at `speed` px/s, tau the clock to drive every card's own loop (silk, typing) so they slow with the belt.
+  function carouselLoop({ dur, start = 0, speed = 204, rampDur = 1.0, stop = null, hz = 240 } = {}) {
+    const n = Math.ceil(dur * hz) + 1, X = new Float64Array(n), TA = new Float64Array(n);
+    let x = 0, tau = 0;
+    for (let i = 0; i < n; i++) {
+      const t = i / hz, k = stop ? 1 - ease.smooth(seg(t, stop[0], stop[1])) : 1;
+      x += speed * swiftSpring(t - start, 'smooth', { duration: rampDur }) * k / hz; tau += k / hz; X[i] = x; TA[i] = tau;
+    }
+    return { at(t) { const f = clamp(t * hz, 0, n - 1), i = Math.floor(f), j = Math.min(n - 1, i + 1), u = f - i; return { x: lerp(X[i], X[j], u), tau: lerp(TA[i], TA[j], u) }; } };
+  }
+
+  const OM = {
+    version: '1.1.0-lite', lineage: 'otk-7f3e1c',
+    clamp, lerp, seg, sstep, ssstep, ease, bezier, tween, t80, spring, springVel, ring, settle, spline, rng,
+    wordRise, letterDrop, popIn, liftOut, maskRise, typeOn, tick, flyThrough,
+    morphRect, iris, zoomThrough, hop, gather, ribbon, seal, staccato,
+    impact, impactSplit, press, cursor, squash, sim,
+    camera, view, dof, whip, shake, drift, lattice, project, unproject, projectBox, screenTravel,
+    swiftSpring, lightField, ripple, silk, carouselLoop,
+  };
+  root.OM = OM;
+  if (typeof module === 'object' && module.exports) module.exports = OM;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script><script>
+'use strict';
+const C=document.getElementById('film'),g=C.getContext('2d'),W=1600,H=900,DUR=54;
+const P={paper:'#f4f2ec',ink:'#242823',muted:'#878b80',line:'#d8dbd0',blue:'#315aec',orange:'#ed7651',blueLight:'#e3e9fc',orangeLight:'#f8e4d8',green:'#567b55'};
+const {clamp,lerp,seg,ease}=OM;
+const E=(t,a,b,curve=ease.cubicInOut)=>curve(seg(t,a,b));
+const alpha=(t,a,b,c,d)=>E(t,a,b)*(1-E(t,c,d));
+function text(s,x,y,size=24,color=P.ink,weight=400,align='left',family='Arial,"Microsoft YaHei","PingFang SC",sans-serif'){g.fillStyle=color;g.font=`${weight} ${size}px ${family}`;g.textAlign=align;g.textBaseline='alphabetic';g.fillText(s,x,y)}
+function line(x1,y1,x2,y2,color=P.line,width=2){g.beginPath();g.moveTo(x1,y1);g.lineTo(x2,y2);g.strokeStyle=color;g.lineWidth=width;g.lineCap='round';g.stroke()}
+function rr(x,y,w,h,r,fill,stroke){g.beginPath();g.roundRect(x,y,w,h,r);if(fill){g.fillStyle=fill;g.fill()}if(stroke){g.strokeStyle=stroke;g.lineWidth=1.5;g.stroke()}}
+function circle(x,y,r,fill,stroke){g.beginPath();g.arc(x,y,r,0,Math.PI*2);if(fill){g.fillStyle=fill;g.fill()}if(stroke){g.strokeStyle=stroke;g.lineWidth=2;g.stroke()}}
+function withAlpha(a,fn){if(a<=0)return;g.save();g.globalAlpha*=clamp(a);fn();g.restore()}
+function rise(s,x,y,size,col,t,start,weight=500){const q=OM.wordRise(t,start,{dist:32,omega:15,zeta:.78});withAlpha(q.op,()=>text(s,x,y+q.y,size,col,weight))}
+function arrow(x,y,dir,col){line(x-dir*8,y-7,x,y,col,2);line(x-dir*8,y+7,x,y,col,2)}
+function packet(x,y,col,label='01',scale=1,rot=0,opacity=1){withAlpha(opacity,()=>{g.save();g.translate(x,y);g.rotate(rot);g.scale(scale,scale);g.shadowColor=col+'28';g.shadowBlur=22;g.shadowOffsetY=8;rr(-29,-25,58,50,13,col);g.shadowColor='transparent';g.shadowBlur=0;g.shadowOffsetY=0;rr(-20,-17,40,2,1,'#ffffff44');text(label,0,7,18,'white',600,'center');g.restore()})}
+function node(x,y,col,name){circle(x,y,43,P.paper,P.line);circle(x,y,31,P.paper,col);rr(x-12,y-10,24,17,3,null,col);line(x-8,y+14,x+8,y+14,col,2);line(x,y+8,x,y+13,col,2);text(name,x,y+79,17,P.muted,400,'center')}
+function pill(s,x,y,col,bg){g.font='500 16px Arial,"Microsoft YaHei"';const w=g.measureText(s).width+30;rr(x,y-23,w,34,17,bg);text(s,x+15,y,16,col,500)}
+const KEYS=[{t:0,x:800,y:450,zoom:1},{t:5,x:800,y:450,zoom:1},{t:12,x:810,y:454,zoom:1.025},{t:18,x:805,y:450,zoom:1.015},{t:21,x:800,y:450,zoom:1},{t:23.4,x:800,y:450,zoom:1},{t:27,x:800,y:1060,zoom:1,curve:ease.sineInOut},{t:34,x:830,y:1060,zoom:1.03},{t:36,x:800,y:1060,zoom:1},{t:38,x:800,y:1060,zoom:1},{t:40.2,x:800,y:730,zoom:.63,curve:ease.quintInOut},{t:45,x:800,y:730,zoom:.63},{t:46.5,x:800,y:734,zoom:.645},{t:54,x:800,y:734,zoom:.645}];
+function camera(t){return OM.camera(t,KEYS,{W,H})}
+let TRACK={};
+function bez(a,b,c,d,k){return(1-k)**3*a+3*(1-k)**2*k*b+3*(1-k)*k*k*c+k**3*d}
+function hero(t){if(t<5)return{x:lerp(800,280,E(t,3.25,5)),y:lerp(504,500,E(t,3.25,5)),s:lerp(1.6,1,E(t,3.25,5)),col:P.blue};if(t<10.7)return{x:280,y:500,s:1,col:P.blue,op:1-E(t,5,5.35)};if(t<21.4)return{x:1320,y:500,s:1,col:P.blue,op:0};if(t<24)return{x:1320,y:500,s:1,col:P.blue,op:E(t,21.4,22)};const k=E(t,24,27,ease.sineInOut),u=k<.5?k*2:(k-.5)*2;return{x:k<.5?bez(1320,1580,1510,800,u):bez(800,350,280,280,u),y:k<.5?bez(500,610,920,920,u):bez(920,920,1005,1110,u),s:1,col:k<.6?P.blue:P.orange,op:1-E(t,27,27.4)}}
+function drawRail(t,y,col,proto){const isTCP=proto==='TCP',a=isTCP?E(t,3.5,5):E(t,24,26.5);withAlpha(a,()=>{line(324,y,1276,y,P.line,3);for(let x=370;x<1250;x+=48)line(x,y-5,x,y+5,P.line,1);node(280,y,col,'发送端');node(1320,y,col,'接收端');text(proto,280,y-120,70,col,700);text(isTCP?'TRANSMISSION CONTROL PROTOCOL':'USER DATAGRAM PROTOCOL',283,y-86,13,P.muted,500);text(isTCP?'可靠、有序的字节流':'独立发送的数据报',1320,y-107,22,P.ink,500,'right')})}
+function flight(t,a,b,from,to,y,col,label){if(t<a||t>b+.2)return;let k=E(t,a,b,ease.sineInOut);let x=lerp(from,to,k);withAlpha(1-E(t,b,b+.2),()=>{line(from,y,x,y,col,2);packet(x,y,col,label,.76);arrow(x+(to>from?32:-32),y,to>from?1:-1,col)})}
+function handshake(t){withAlpha(alpha(t,5,5.6,10.3,10.7),()=>{text('建立连接',800,685,24,P.ink,500,'center');text('SYN   →   SYN + ACK   →   ACK',800,726,17,P.muted,400,'center');const steps=[[5.5,6.7,280,1320,'SYN'],[7,8.2,1320,280,'S+A'],[8.5,9.6,280,1320,'ACK']];for(const[a,b,l,r,s]of steps)flight(t,a,b,l,r,500,P.blue,s);for(let i=0;i<3;i++)circle(770+i*30,766,4,t>steps[i][1]?P.blue:P.line);withAlpha(E(t,9.7,10),()=>pill('连接已建立',733,592,P.blue,P.blueLight))})}
+function tcp(t){const on=alpha(t,10.6,11.1,23.7,24.3);withAlpha(on,()=>{const slots=[1160,1238,1316,1394];for(let i=0;i<4;i++){rr(slots[i]-29,582,58,50,11,null,P.line);text(String(i+1).padStart(2,'0'),slots[i],655,13,P.muted,400,'center')}
+  // Packets are illustrative numbered portions of a byte stream, not TCP message boundaries.
+  const sends=[11.25,12.3,13.35,14.4];for(let i=0;i<4;i++){const a=sends[i],b=a+1.65;if(t<a)continue;if(i===1){if(t<13.35){let k=seg(t,a,13.35);packet(lerp(280,835,k),500,P.blue,'02',1,0,1-E(t,13.05,13.35))}continue}const k=E(t,a,b,ease.sineInOut);if(t<b)packet(lerp(280,1320,k),500,P.blue,String(i+1).padStart(2,'0'));else{const q=E(t,b,b+.65);packet(lerp(1320,slots[i],q),lerp(500,607,q),P.blue,String(i+1).padStart(2,'0'))}}
+  withAlpha(alpha(t,13.05,13.3,17.6,18),()=>{circle(835,500,37,null,P.orange);line(825,490,845,510,P.orange,2);line(845,490,825,510,P.orange,2);pill('02 丢失',786,436,P.orange,P.orangeLight)});
+  withAlpha(alpha(t,15.8,16.2,18.8,19.2),()=>{g.setLineDash([5,7]);line(1290,551,316,551,P.blue,1.5);g.setLineDash([]);arrow(316,551,-1,P.blue);text('确认进度停在缺口之前',760,580,17,P.blue,400,'center')});
+  if(t>=17.2){const k=E(t,17.2,18.7,ease.sineInOut),q=E(t,18.7,19.35);packet(lerp(lerp(280,1320,k),slots[1],q),lerp(500,607,q),P.blue,'02');withAlpha(alpha(t,17.2,17.5,19.4,19.7),()=>pill('重传 02',440,445,P.blue,P.blueLight))}
+  withAlpha(alpha(t,14.9,15.3,19.35,19.7),()=>{text('先缓存，等缺口补齐',1277,711,19,P.muted,400,'center')});
+  withAlpha(E(t,19.5,20.1),()=>{line(1131,678,1423,678,P.blue,3);text('01  02  03  04',1277,720,24,P.blue,600,'center');text('按序交给应用',1277,755,18,P.muted,400,'center')});
+  text(t<16.8?'丢失可以发生。':t<19.5?'缺了这一段，就补回来。':'完整抵达，顺序不乱。',280,690,32,P.ink,600);text('示意：编号代表字节流片段',280,733,15,P.muted);
+});}
+function udp(t){withAlpha(alpha(t,27,27.6,38.5,39.3),()=>{const y=1110;for(let i=0;i<11;i++){let a=27.4+i*.61,b=a+1.7;if(t<a||t>b+.5)continue;const loss=i===3||i===7;const k=seg(t,a,b);let x=lerp(280,1320,k);if(loss){packet(x,y,P.orange,String(i+1).padStart(2,'0'),.9,0,1-E(k,.43,.62));withAlpha(alpha(k,.43,.55,.8,1),()=>{line(807,y-12,831,y+12,P.orange,2);line(831,y-12,807,y+12,P.orange,2)})}else{packet(x,y,P.orange,String(i+1).padStart(2,'0'),.9,0,1-E(t,b,b+.2))}}
+  withAlpha(E(t,28,28.5),()=>{pill('不等待确认',280,y+150,P.orange,P.orangeLight);text('继续发送下一份数据',280,y+226,32,P.ink,600)});
+  withAlpha(E(t,30,30.5),()=>{text('丢失？UDP 本身不重传。',1320,y+166,24,P.ink,500,'right');text('应用决定如何处理缺失',1320,y+207,18,P.muted,400,'right')});
+  // A live signal is built from received datagrams; gaps remain visibly unfilled.
+  for(let i=0;i<11;i++){const arrival=29.1+i*.61;if(t<arrival)continue;const x=1076+i*24,h=18+35*Math.abs(Math.sin(i*1.73));if(i===3||i===7){line(x,y-190,x+10,y-190,P.line,2)}else{rr(x,y-190-h/2,10,h,5,P.orange)}}
+  withAlpha(E(t,33.8,34.3),()=>{text('实时信号仍在继续',1204,y-232,17,P.muted,400,'center')});
+})}
+// One full-width spec row per rail: the pill sits on the sender column, the use case right-aligned on the
+// receiver column, a dotted leader carrying the eye between them. Both rows share rail + 150, so they can
+// never drift into the other rail's wordmark.
+function specRow(s,label,y,col,bg){pill(s,280,y,col,bg);g.font='500 16px Arial,"Microsoft YaHei"';const w=g.measureText(s).width+30;g.font='500 28px Arial,"Microsoft YaHei","PingFang SC",sans-serif';const lw=g.measureText(label).width;g.setLineDash([2,7]);line(280+w+24,y-6,1320-lw-26,y-6,P.line,1);g.setLineDash([]);text(label,1320,y,28,P.ink,500,'right')}
+function summary(t){const k=E(t,38.5,40.2),yT=500+170*k,yU=1110-40*k,row=150;withAlpha(E(t,39,40.2),()=>{specRow('完整性优先','文件传输 · 可靠消息',yT+row,P.blue,P.blueLight);specRow('时效性优先','实时语音 · 游戏状态',yU+row,P.orange,P.orangeLight);for(let i=0;i<4;i++){packet(630+i*150,yT,P.blue,String(i+1).padStart(2,'0'),.8);packet(630+i*150,yU,P.orange,String(i+1).padStart(2,'0'),.8,0,i===2?.18:1)}})}
+// 04 · 尾声 — the world drains away and the film answers the question it has been asking.
+function closing(t){withAlpha(alpha(t,45.55,46.15,50.9,51.45),()=>{text('04 / 尾声 · CLOSING',800,352,13,P.muted,600,'center');line(664,372,936,372,P.line,1);const q=OM.wordRise(t,45.9,{dist:34,omega:14,zeta:.8});withAlpha(q.op,()=>text('更怕等，还是更怕丢？',800,492+q.y,64,P.ink,600,'center'));const s=OM.wordRise(t,46.45,{dist:20,omega:15,zeta:.8});withAlpha(s.op,()=>text('答案不同，选的路就不一样。',800,550+s.y,24,P.muted,400,'center'))});
+  withAlpha(E(t,47.5,48.2)*(1-E(t,50.9,51.45)),()=>{const r=OM.wordRise(t,47.5,{dist:24,omega:15,zeta:.8});withAlpha(r.op,()=>{line(480,628,1120,628,P.line,1);text('第三条路 · A THIRD PATH',480,662,13,P.muted,600);text('需要兼得时，QUIC 把可靠性建在 UDP 之上；',480,708,22,P.ink,400);text('HTTP/3 已经这么做了。',480,744,22,P.muted,400)})});
+  withAlpha(E(t,51.4,52.3),()=>{const r=OM.wordRise(t,51.4,{dist:26,omega:13,zeta:.8});withAlpha(r.op,()=>{line(700,398,900,398,P.line,1);text('一枚数据包的两种旅程',800,486+r.y,48,P.ink,600,'center');g.font='500 13px Arial,"Microsoft YaHei"';const a='TCP × ',b='UDP',c=' · NETWORK NOTES / 001',x0=800-(g.measureText(a).width+g.measureText(b).width+g.measureText(c).width)/2;text(a,x0,536+r.y,13,P.blue,500);text(b,x0+g.measureText(a).width,536+r.y,13,P.orange,500);text(c,x0+g.measureText(a).width+g.measureText(b).width,536+r.y,13,P.muted,500)})})}
+const captions=[
+ [0,4.5,'同一份数据，可以有两种不同的传输约定。'],[5,10.5,'TCP：先建立连接，再开始传输。'],[10.7,16.7,'网络会丢包。先到的后续数据，可以暂存等待。'],[16.8,21,'TCP 会重传缺失部分，向应用按序交付字节流。'],[21,24,'可靠，需要确认、等待与控制。'],[24,27,'如果更在意当下，又会怎样？'],[27,31,'UDP：无需建立传输层连接，独立发送数据报。'],[31,35,'UDP 本身不保证送达、顺序，也不负责重传。'],[35,39,'需要怎样的可靠性，由应用在上层设计。'],[39,45,'没有绝对更快的协议，只有更适合的传输约定。'],[45,48.6,'同一份数据，两种承诺。'],[48.6,54,'没有更好的协议，只有更清楚的选择。']];
+function paint(t){t=clamp(t,0,DUR);g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,W,H);g.fillStyle=P.paper;g.fillRect(0,0,W,H);
+  // Quiet editorial frame stays anchored while one continuous network world moves beneath it.
+  text('FIELD GUIDE',72,56,12,P.muted,600);text('传输层 / TRANSPORT LAYER',1528,56,12,P.muted,400,'right');line(72,78,1528,78,P.line,1);
+  const cam=camera(t),matrix=OM.view(cam,{W,H});
+  // One continuous network world; the closing lets it drain away and leaves paper behind.
+  withAlpha(1-E(t,45,45.9),()=>{
+  g.save();g.beginPath();g.rect(0,300,W,470);g.clip();g.transform(...matrix);
+  // TCP and UDP live in the same world. The connecting route physically carries the protagonist.
+  const end=E(t,38.5,40.2);
+  withAlpha(E(t,23.5,24.5)*(1-.85*E(t,27,28))*(1-E(t,38,40)),()=>{g.beginPath();g.moveTo(1320,500);g.bezierCurveTo(1580,610,1510,920,800,920);g.bezierCurveTo(350,920,280,1005,280,1110);g.strokeStyle=P.line;g.lineWidth=2;g.stroke()});
+  g.save();g.translate(0,170*end);drawRail(t,500,P.blue,'TCP');handshake(t);tcp(t);g.restore();g.save();g.translate(0,-40*end);drawRail(t,1110,P.orange,'UDP');udp(t);g.restore();summary(t);
+  const h=hero(t);packet(h.x,h.y,h.col,'01',h.s,0,h.op??1);const pt=OM.project(matrix,h.x,h.y);TRACK={packet:{x:pt[0]-30*h.s*cam.zoom,y:pt[1]-26*h.s*cam.zoom,w:60*h.s*cam.zoom,h:52*h.s*cam.zoom,op:h.op??1},tcp:{...OM.projectBox(matrix,{x:237,y:457,w:1126,h:86}),op:E(t,3.5,5)},udp:{...OM.projectBox(matrix,{x:237,y:1067,w:1126,h:86}),op:E(t,24,26.5)}};
+  g.restore();
+  });
+  const intro=1-E(t,3.6,4.8);withAlpha(intro,()=>{text('ONE PACKET. TWO JOURNEYS.',800,166,14,P.muted,500,'center');text('一枚数据包的',800,284,76,P.ink,600,'center');text('两种旅程',800,386,96,P.ink,600,'center');text('TCP',671,623,27,P.blue,700,'center');text('与',800,623,20,P.muted,400,'center');text('UDP',929,623,27,P.orange,700,'center');line(706,616,758,616,P.line);line(842,616,893,616,P.line)});
+  withAlpha(alpha(t,4,5,23.4,24.5),()=>{text('01 / TCP',74,136,14,P.blue,600);rise('把完整，放在第一位。',72,238,66,P.ink,t,4.15,600);text('先连接 · 有确认 · 会重传 · 按序交付',76,281,18,P.muted)});
+  withAlpha(alpha(t,24.9,26.1,38.1,39.1),()=>{text('02 / UDP',74,136,14,P.orange,600);rise('让下一刻，继续发生。',72,238,66,P.ink,t,25.05,600);text('无连接 · 独立数据报 · 由应用处理可靠性',76,281,18,P.muted)});
+  withAlpha(alpha(t,38.7,40,44.9,45.6),()=>{text('03 / THE RIGHT PROMISE',74,136,14,P.muted,600);rise('选择，取决于你在意什么。',72,228,62,P.ink,t,38.9,600);text('TCP / 可靠有序的字节流          UDP / 不保证送达与顺序的数据报',76,273,18,P.muted)});
+  closing(t);
+  const cap=captions.find(([a,b])=>t>=a&&t<b)||captions[captions.length-1];withAlpha(alpha(t,cap[0],cap[0]+.3,cap[1]-.2,cap[1]),()=>{text(cap[2],800,816,23,P.ink,400,'center')});
+  line(72,849,1528,849,P.line,1);text('NETWORK NOTES',72,876,11,P.muted,500);text(t>=39?'实际性能取决于网络与应用设计；HTTP/3 使用 UDP 之上的 QUIC 实现可靠传输。':'数据包与编号为机制示意，路径、时间和比例经过艺术化处理。',800,876,11,P.muted,400,'center');text(String(Math.min(DUR,Math.floor(t))).padStart(2,'0')+' / '+DUR,1528,876,11,P.muted,400,'right');
+}
+// Original procedural score. No samples, external requests, or media dependencies.
+// D major / B minor, 96 BPM. Soft plucked keys, breathing pads, restrained percussion.
+let audioCtx=null,audioBuffer=null,audioPromise=null,source=null,master=null,muted=false;
+async function buildScore(){const rate=32000,ctx=new OfflineAudioContext(2,rate*DUR,rate);const bus=ctx.createGain();bus.gain.value=.6;const compressor=ctx.createDynamicsCompressor();compressor.threshold.value=-18;compressor.ratio.value=3;compressor.knee.value=18;bus.connect(compressor);compressor.connect(ctx.destination);
+  const room=ctx.createConvolver(),ir=ctx.createBuffer(2,rate*1.15,rate),rng=OM.rng(41);for(let c=0;c<2;c++){let d=ir.getChannelData(c),prev=0;for(let i=0;i<d.length;i++){prev=.68*prev+.32*(rng()*2-1);d[i]=prev*Math.exp(-i/rate*7)*.23}}room.buffer=ir;const wet=ctx.createGain();wet.gain.value=.25;room.connect(wet);wet.connect(bus);
+  const freq=m=>440*Math.pow(2,(m-69)/12);const level=t=>t>21&&t<24?.035:t>DUR-3?clamp((DUR-t)/3):1;
+  function note(t,m,dur,amp,kind='pluck',pan=0){if(t>=DUR-1)return;const gain=ctx.createGain(),p=ctx.createStereoPanner();p.pan.value=pan;gain.connect(p);p.connect(bus);gain.connect(room);const a=amp*level(t),att=kind==='pad'?.65:.009;gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(a,t+att);gain.gain.exponentialRampToValueAtTime(.0001,Math.min(DUR,t+dur));const low=ctx.createBiquadFilter();low.type='lowpass';low.frequency.value=kind==='pad'?850:2400;low.connect(gain);for(const [ratio,v]of [[1,1],[2,.24],[3,.075]]){const osc=ctx.createOscillator(),og=ctx.createGain();osc.type='sine';osc.frequency.value=freq(m)*ratio;og.gain.value=v;osc.connect(og);og.connect(low);osc.start(t);osc.stop(Math.min(DUR,t+dur+.03))}}
+  // The last three bars leave the circulating progression and resolve: A (48.5) → D, held under the end card.
+  const beat=.625,chords=[[50,57,61,66],[47,54,57,62],[43,50,54,59],[45,52,57,61]];for(let bar=0;bar<Math.ceil(DUR/2.5);bar++){let start=bar*2.5,chord=start>=51?[50,57,61,66]:start>=48.5?[45,52,57,61]:chords[bar%4],sustain=start>=48.5?6:3;for(let m of chord)note(start,m,sustain,.042,'pad',(m%3-1)*.35);if(start<21||start>=24){note(start,chord[0]-12,start>=48.5?5:1.9,.075,'bass');for(let j=0;j<4;j++){const idx=[0,2,1,3][j];note(start+j*beat,chord[idx]+12,1.1,j===0?.083:.056,'pluck',j%2?.3:-.3)}}}
+  const noise=ctx.createBuffer(1,rate*.15,rate);let nd=noise.getChannelData(0);for(let i=0;i<nd.length;i++)nd[i]=rng()*2-1;
+  for(let t=5;t<DUR-5;t+=beat){if(t>20.8&&t<24.7)continue;const gain=ctx.createGain(),osc=ctx.createOscillator();osc.frequency.setValueAtTime(110,t);osc.frequency.exponentialRampToValueAtTime(45,t+.13);gain.gain.setValueAtTime(.085*level(t),t);gain.gain.exponentialRampToValueAtTime(.0001,t+.22);osc.connect(gain);gain.connect(bus);osc.start(t);osc.stop(t+.23);if(t>=26){const ns=ctx.createBufferSource(),hp=ctx.createBiquadFilter(),ng=ctx.createGain();ns.buffer=noise;hp.type='highpass';hp.frequency.value=7000;ng.gain.setValueAtTime(.025,t+.3125);ng.gain.exponentialRampToValueAtTime(.0001,t+.39);ns.connect(hp);hp.connect(ng);ng.connect(bus);ns.start(t+.3125)}}
+  for(const e of EVENTS)note(e.t,e.kind==='loss'?51:e.kind==='land'?74:69,e.kind==='land'?.7:.28,e.kind==='land'?.15:.085,'pluck',e.pan);
+  // Near-silence is deliberate; the closing phrase resolves without a stock shimmer.
+  const rendered=await ctx.startRendering();for(let c=0;c<2;c++){let d=rendered.getChannelData(c);for(let i=0;i<d.length;i++){let t=i/rate;const quiet=1-.985*alpha(t,21.1,21.6,23.2,24.1);d[i]*=quiet*clamp(t/.35)*clamp((DUR-t)/1.8)}}return rendered;
+}
+const EVENTS=[{t:5,kind:'land',pan:-.5},{t:9.6,kind:'land',pan:.5},{t:13.25,kind:'loss',pan:0},{t:18.7,kind:'land',pan:.5},{t:26.9,kind:'land',pan:-.5},{t:39.6,kind:'land',pan:0},{t:45.7,kind:'land',pan:-.2},{t:48,kind:'land',pan:.2},{t:51.6,kind:'land',pan:0}];
+async function ensureAudio(){if(!audioCtx){audioCtx=new(window.AudioContext||window.webkitAudioContext)();master=audioCtx.createGain();master.gain.value=muted?0:.78;master.connect(audioCtx.destination)}await audioCtx.resume();if(!audioPromise)audioPromise=buildScore();audioBuffer=await audioPromise;}
+function stopAudio(){if(source){try{source.stop()}catch{}source.disconnect();source=null}}
+function playAudio(offset){stopAudio();if(!audioBuffer||offset>=DUR)return;source=audioCtx.createBufferSource();source.buffer=audioBuffer;source.connect(master);source.start(0,offset)}
+let current=0,playing=false,last=0,started=false,requestId=0;
+const $=s=>document.getElementById(s),fmt=t=>'00:'+String(Math.floor(t)).padStart(2,'0');
+function sync(){ $('time').textContent=fmt(current)+' / '+fmt(DUR);$('scrub').value=current;$('play').textContent=playing?'Ⅱ':current>=DUR?'↺':'▶';$('play').setAttribute('aria-label',playing?'暂停':'播放')}
+function frame(now){if(playing){current=Math.min(DUR,current+(now-last)/1000);if(current>=DUR){playing=false;stopAudio()}paint(current);sync()}last=now;requestAnimationFrame(frame)}
+async function play(){if(playing)return;const token=++requestId;$('begin').textContent='正在准备音乐…';try{await ensureAudio()}catch(e){console.warn('Audio unavailable',e);$('sound').textContent='音乐不可用'}if(token!==requestId)return;if(current>=DUR)current=0;started=true;$('start').classList.add('hidden');playing=true;last=performance.now();playAudio(current);sync()}
+function pause(){requestId++;playing=false;stopAudio();sync()}
+function seek(t){current=clamp(t,0,DUR);paint(current);sync();if(playing){last=performance.now();playAudio(current)}}
+$('begin').onclick=play;$('play').onclick=()=>playing?pause():play();$('replay').onclick=()=>{seek(0);play()};$('scrub').addEventListener('input',e=>{started=true;$('start').classList.add('hidden');seek(Number(e.target.value))});$('sound').onclick=()=>{muted=!muted;if(master)master.gain.setTargetAtTime(muted?0:.78,audioCtx.currentTime,.04);$('sound').textContent=muted?'♫ 音乐关':'♫ 音乐开';$('sound').setAttribute('aria-pressed',String(!muted));$('sound').setAttribute('aria-label',muted?'开启音乐':'关闭音乐')};
+async function fullscreen(){try{if(document.fullscreenElement)await document.exitFullscreen();else await $('player').requestFullscreen()}catch(e){console.warn(e)}}$('full').onclick=fullscreen;$('fsExit').onclick=fullscreen;
+document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{started=true;$('start').classList.add('hidden');seek(+b.dataset.t)});
+document.addEventListener('keydown',e=>{if(['INPUT','BUTTON'].includes(document.activeElement.tagName))return;if(e.code==='Space'){e.preventDefault();playing?pause():play()}if(e.key==='ArrowRight'){e.preventDefault();seek(current+5)}if(e.key==='ArrowLeft'){e.preventDefault();seek(current-5)}if(e.key.toLowerCase()==='f')fullscreen()});document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing)pause()});
+window.__seek=t=>{seek(t);return true};window.__meta={dur:DUR,fps:30,cuts:[],inFrame:{}};window.__track=t=>{paint(t);return TRACK};window.__events=()=>({T:DUR,events:EVENTS});window.__motion=(a,b)=>Math.max(OM.screenTravel(camera(a),camera(b),camera((a+b)/2)),Math.abs(b-a)*1000);window.__ready=document.fonts.ready.then(()=>{const p=new URLSearchParams(location.search);current=clamp(Number(p.get('t')||0),0,DUR);if(p.has('t'))$('start').classList.add('hidden');paint(current);sync();return true});requestAnimationFrame(frame);
+</script></body></html>
+
