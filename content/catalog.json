@@ -126,22 +126,12 @@
   },
   "presentations/bupt/index.html": {
     "title": "北京邮电大学 / 连接世界，从北邮出发",
-    "description": "十二页校园纪实：从历史与学科，到科研、生活与世界。",
-    "tags": [
-      "高校介绍",
-      "校园",
-      "交互演示"
-    ],
-    "order": -1
-  },
-  "presentations/bupt-v2/index.html": {
-    "title": "北京邮电大学 / 连接世界，从北邮出发 · 第二版",
     "description": "渐次入场、数字动效与校史进度线，十二页认识北邮。",
     "tags": [
       "高校介绍",
       "校园",
       "交互演示"
     ],
-    "order": -2
+    "order": -1
   }
 }

@@ -15,12 +15,15 @@
   let current = 0;
   let animations = [];
   let generation = 0;
+  const counters = new Map();
+  const ease = getComputedStyle(deck).getPropertyValue("--ease").trim();
   let toastTimer;
   let touchStart = null;
 
   function fit() {
     const scale = Math.min(innerWidth / 1600, innerHeight / 900);
     deck.style.transform = portrait.matches ? 'none' : `scale(${scale})`;
+    if (typeof current === 'number') measureTimeline();
   }
   fit();
   addEventListener('resize', fit);
@@ -51,24 +54,113 @@
     overviewGrid.append(item);
   });
 
+  function settleCounter(element) {
+    const frame = counters.get(element);
+    if (frame !== undefined) cancelAnimationFrame(frame);
+    counters.delete(element);
+    element.textContent = Number(element.dataset.value).toLocaleString('en-US');
+  }
+
   function cancelAnimations() {
     animations.forEach(animation => animation.cancel());
     animations = [];
+    document.querySelectorAll('.count-text').forEach(settleCounter);
     slides.forEach(slide => slide.classList.remove('exiting'));
   }
 
   function animate(element, frames, options) {
-    const animation = element.animate(frames, options);
+    if (!element) return;
+    const animation = element.animate(frames, { easing: ease, fill: 'backwards', ...options });
     animations.push(animation);
     return animation;
   }
 
-  function go(index, { instant = false, updateHash = true } = {}) {
+  function countUp(element, delay = 0) {
+    settleCounter(element);
+    if (reduced.matches) return;
+    const target = Number(element.dataset.value);
+    const start = performance.now() + delay;
+    const duration = 1150;
+    element.textContent = '0';
+    const tick = now => {
+      const t = Math.max(0, Math.min(1, (now - start) / duration));
+      const value = Math.round(target * (1 - Math.pow(1 - t, 3)));
+      element.textContent = value.toLocaleString('en-US');
+      if (t < 1) counters.set(element, requestAnimationFrame(tick));
+      else settleCounter(element);
+    };
+    counters.set(element, requestAnimationFrame(tick));
+  }
+
+  function measureTimeline() {
+    const timeline = document.querySelector('.timeline');
+    const dots = [...timeline.querySelectorAll('.timeline-dot')];
+    // Local layout units remain correct when the 1600px stage is scaled.
+    const first = dots[0].closest('article');
+    const last = dots.at(-1).closest('article');
+    const length = portrait.matches ? last.offsetTop - first.offsetTop : last.offsetLeft - first.offsetLeft;
+    timeline.style.setProperty('--timeline-length', `${length}px`);
+    return { timeline, dots, length };
+  }
+
+  function playTimeline(base) {
+    const { timeline, dots, length } = measureTimeline();
+    const vertical = portrait.matches;
+    const duration = 2000;
+    const scale = vertical ? 'scaleY' : 'scaleX';
+    animate(timeline.querySelector('.timeline-progress'), [
+      { transform: `${scale}(0)` }, { transform: `${scale}(1)` }
+    ], { delay: base, duration, easing: 'linear' });
+    const head = timeline.querySelector('.timeline-head');
+    animate(head, [
+      { transform: 'translate(0,0)', opacity: 1, offset: 0 },
+      { transform: vertical ? `translateY(${length}px)` : `translateX(${length}px)`, opacity: 1, offset: .96 },
+      { transform: vertical ? `translateY(${length}px)` : `translateX(${length}px)`, opacity: 0, offset: 1 }
+    ], { delay: base, duration: duration / .96, easing: 'linear' });
+    dots.forEach((dot, i) => {
+      const article = dot.closest('article');
+      const first = dots[0].closest('article');
+      const distance = vertical ? article.offsetTop - first.offsetTop : article.offsetLeft - first.offsetLeft;
+      const delay = base + duration * (length ? distance / length : i / (dots.length - 1));
+      animate(dot.querySelector('.timeline-light'), [
+        { opacity: 0, transform: 'scale(.65)' }, { opacity: 1, transform: 'scale(1)' }
+      ], { delay, duration: 220 });
+      animate(article.querySelector('.milestone-copy'), [
+        { opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'translateY(0)' }
+      ], { delay: delay + 60, duration: 460 });
+    });
+  }
+
+  function revealContent(active, base) {
+    const elements = [...active.querySelectorAll('.reveal')];
+    elements.forEach((element, i) => {
+      const delay = base + i * 70;
+      const isPhoto = element.matches('figure, .research-visual');
+      animate(element, [
+        { opacity: 0, transform: isPhoto ? 'translateY(16px) scale(.98)' : 'translateY(16px)' },
+        { opacity: 1, transform: 'translateY(0) scale(1)' }
+      ], { duration: isPhoto ? 700 : 540, delay });
+      element.querySelectorAll('.count-text').forEach(number => countUp(number, delay + 120));
+    });
+    if (active.classList.contains('history')) playTimeline(base + 340);
+    const photo = active.querySelector('.cover-image img, .closing-photo, .learning-image img');
+    if (photo && !portrait.matches) animate(photo, [
+      { transform: 'scale(1.035)' }, { transform: 'scale(1)' }
+    ], { duration: 1200, delay: base });
+    const grade = active.querySelector('.grade');
+    if (grade) animate(grade, [
+      { opacity: .4, transform: 'scale(.96)' }, { opacity: 1, transform: 'scale(1)' }
+    ], { duration: 700, delay: base + 140 });
+  }
+
+  function go(index, { instant = false, updateHash = true, replay = false } = {}) {
     if (!Number.isFinite(index)) return;
     index = Math.max(0, Math.min(slides.length - 1, Math.trunc(index)));
     const old = slides[current];
     const changed = current !== index;
     const direction = index >= current ? 1 : -1;
+    if (!changed && !instant && !replay) return;
+    deck.classList.toggle('motion-instant', instant || reduced.matches);
     const run = ++generation;
     cancelAnimations();
     current = index;
@@ -90,35 +182,30 @@
     prev.disabled = current === 0;
     next.disabled = current === slides.length - 1;
     if (updateHash) history.replaceState(null, '', `#${current + 1}`);
-    if (instant || reduced.matches || !changed) return;
+    measureTimeline();
+    if (instant || reduced.matches) return;
 
-    old.classList.add('exiting');
-    const shift = portrait.matches ? 16 : 38;
-    animate(old, [
-      { opacity: 1, transform: 'translateX(0)' },
-      { opacity: 0, transform: `translateX(${-direction * shift}px)` }
-    ], { duration: 400, easing: 'cubic-bezier(.4,0,1,1)' });
-    const enter = animate(active, [
-      { opacity: 0, transform: `translateX(${direction * shift}px)` },
-      { opacity: 1, transform: 'translateX(0)' }
-    ], { duration: 680, easing: 'cubic-bezier(.16,1,.3,1)' });
-    [...active.querySelectorAll('.reveal')].forEach((el, i) => {
-      const delay = Math.min(i * 45, 180);
-      animate(el, [
-        { opacity: 0, transform: 'translateY(15px)' },
-        { opacity: 1, transform: 'translateY(0)' }
-      ], { duration: 540, delay, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' });
-    });
-    const photo = active.querySelector('.cover-image img, .closing-photo, .learning-image img');
-    if (photo && !portrait.matches) {
-      animate(photo, [{ transform: 'scale(1.035)' }, { transform: 'scale(1)' }], {
-        duration: 1000, easing: 'cubic-bezier(.16,1,.3,1)'
-      });
+    if (changed) {
+      old.classList.add('exiting');
+      animate(old, [{ opacity: 1 }, { opacity: 0 }], { duration: 220 });
+      const photoPage = active.matches('.cover,.learning,.campuses,.life,.closing') && !portrait.matches;
+      const enter = animate(active, photoPage ? [
+        { clipPath: direction > 0 ? 'inset(0 100% 0 0)' : 'inset(0 0 0 100%)' },
+        { clipPath: 'inset(0 0 0 0)' }
+      ] : [
+        { opacity: 0 }, { opacity: 1 }
+      ], { duration: photoPage ? 700 : 400, delay: photoPage ? 0 : 140 });
+      enter.finished.then(() => {
+        if (run === generation) old.classList.remove('exiting');
+      }).catch(() => {});
     }
-    enter.finished.then(() => {
-      if (run === generation) old.classList.remove('exiting');
-    }).catch(() => {});
+    revealContent(active, changed ? 230 : 70);
   }
+
+  document.querySelectorAll('.metric-button').forEach(button => {
+    button.addEventListener('click', () => button.querySelectorAll('.count-text').forEach(el => countUp(el)));
+  });
+  document.querySelector('#replay').addEventListener('click', () => go(current, { replay: true }));
 
   function toast(message) {
     const el = document.querySelector('#toast');
@@ -177,6 +264,8 @@
       event.preventDefault(); go(0);
     } else if (event.key === 'End') {
       event.preventDefault(); go(slides.length - 1);
+    } else if (event.key.toLowerCase() === 'r') {
+      event.preventDefault(); go(current, { replay: true });
     } else if (event.key.toLowerCase() === 'o') {
       event.preventDefault(); openOverview();
     } else if (event.key.toLowerCase() === 'f') {
@@ -198,17 +287,21 @@
   }, { passive: true });
   deck.addEventListener('touchcancel', () => { touchStart = null; }, { passive: true });
 
-  function fromHash() {
+  function fromHash(initial = false) {
     const match = /^#(\d+)$/.exec(location.hash);
-    go(match ? Number(match[1]) - 1 : 0, { instant: true });
+    go(match ? Number(match[1]) - 1 : 0, { instant: !initial, replay: initial });
   }
-  addEventListener('hashchange', fromHash);
+  addEventListener('hashchange', () => fromHash());
   reduced.addEventListener('change', () => go(current, { instant: true }));
-  fromHash();
+  fromHash(true);
+
+  addEventListener('beforeprint', () => go(current, { instant: true }));
+  portrait.addEventListener('change', () => { fit(); go(current, { instant: true }); });
 
   // Explicit probe surface: no autoplay or ambient animation; every page has a stable rest state.
   window.__deck = {
     go: (index, instant = false) => go(index, { instant }),
+    replay: () => go(current, { replay: true }),
     state: () => ({ index: current, total: slides.length, title: slides[current].dataset.title, reducedMotion: reduced.matches }),
     hold: milliseconds => animations.forEach(animation => { animation.pause(); animation.currentTime = milliseconds; }),
     settle: () => go(current, { instant: true })
