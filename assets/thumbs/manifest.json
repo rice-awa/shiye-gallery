@@ -58,5 +58,9 @@
   "/bupt": {
     "hash": "66976ea4b3406f07045e66ea56ea8cd276c1a7dec4064af59358274d6b7d2e5c",
     "thumbnail": "bupt.webp"
+  },
+  "/pelican-ride": {
+    "hash": "827c7e5821be3e2bf853ddf3f9f8d788d9e560dd3ab2e4894b9fa4ba79194055",
+    "thumbnail": "pelican-ride.webp"
   }
 }

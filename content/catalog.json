@@ -134,5 +134,15 @@
       "交互演示"
     ],
     "order": -1
+  },
+  "experiments/pelican-ride.html": {
+    "title": "乘着海风 / Pelican Ride",
+    "description": "一只鹈鹕的海岸骑行。拖动时间轴，让车轮、脚蹬与海风停在喜欢的一刻。",
+    "tags": [
+      "SVG",
+      "动画",
+      "创意编程"
+    ],
+    "order": -2
   }
 }
