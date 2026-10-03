@@ -54,5 +54,13 @@
   "/tcp-udp": {
     "hash": "b8e82e70ae566b74b7fe54d9271db64bd7f40331d23064363e1024ddb4dc07ea",
     "thumbnail": "tcp-udp.webp"
+  },
+  "/bupt-v2": {
+    "hash": "d260d058351a375d93900e94c2ecc15399c4d13c3affbe150c11cbe9a82827e1",
+    "thumbnail": "bupt-v2.webp"
+  },
+  "/bupt": {
+    "hash": "0665c012ea93500f8f466005fe9303e254d45046d6dbc58b1132dc47455bd728",
+    "thumbnail": "bupt.webp"
   }
 }
