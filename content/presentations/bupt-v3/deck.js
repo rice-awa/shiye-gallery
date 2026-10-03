@@ -19,6 +19,55 @@
   const ease = getComputedStyle(deck).getPropertyValue("--ease").trim();
   let toastTimer;
   let touchStart = null;
+  const researchStack = document.querySelector('.research-stack');
+  const researchCards = [...researchStack.querySelectorAll('.research-card')];
+  const cardToggle = document.querySelector('#research-card-toggle');
+  let researchCard = 0;
+  let cardAnimations = [];
+
+  function setResearchCard(index, instant = false) {
+    const previous = researchCard;
+    const poses = researchCards.map(card => ({transform:getComputedStyle(card).transform,zIndex:getComputedStyle(card).zIndex}));
+    cardAnimations.forEach(a => a.cancel());
+    cardAnimations = [];
+    researchCard = index;
+    researchStack.dataset.card = String(index);
+    researchCards.forEach((card,i) => {
+      card.classList.toggle('is-front', i === index);
+      card.setAttribute('aria-hidden', String(i !== index));
+    });
+    document.querySelector('#research-card-status').textContent = index ? '02 / 02 · 成果现场' : '01 / 02 · 天地互联';
+    cardToggle.textContent = index ? '返回天地互联 ↗' : '查看成果现场 ↗';
+    cardToggle.setAttribute('aria-label', index ? '切换到天地互联卡片' : '切换到成果现场卡片');
+    next.title = current === 5 && !index ? '下一步：查看成果现场（→）' : '下一页（→）';
+    next.setAttribute('aria-label', current === 5 && !index ? '下一步：查看成果现场' : '下一页');
+    if (current === 5 && previous !== index) {
+      if (index) window.__spatial?.hold(2400);
+      else window.__spatial?.activate(slides[5], true);
+    }
+    if (instant || reduced.matches || previous === index) return;
+    researchCards.forEach((card,i) => {
+      const front = i === index;
+      const final = getComputedStyle(card);
+      const distance = portrait.matches ? 24 : 48;
+      const animation = card.animate([
+        {...poses[i],offset:0},
+        {transform:`translate(${front ? distance : -distance}px,${front ? -12 : 40}px) rotate(${front ? 1 : -1}deg) scale(.985)`,zIndex:poses[i].zIndex,offset:.45},
+        {transform:final.transform,zIndex:final.zIndex,offset:1}
+      ], {duration:540,easing:ease});
+      cardAnimations.push(animation);
+    });
+  }
+
+  function navigate(direction) {
+    if (current === 5 && ((direction > 0 && researchCard === 0) || (direction < 0 && researchCard === 1))) {
+      setResearchCard(direction > 0 ? 1 : 0);
+      document.querySelector('#announcement').textContent = `第六页，${researchCard ? '成果现场' : '天地互联'}卡片。`;
+      return;
+    }
+    go(current + direction, { card: direction < 0 && current === 6 ? 1 : 0 });
+  }
+  cardToggle.addEventListener('click', () => setResearchCard(1 - researchCard));
 
   function fit() {
     const scale = Math.min(innerWidth / 1600, innerHeight / 900);
@@ -134,13 +183,18 @@
   function revealContent(active, base) {
     const elements = [...active.querySelectorAll('.reveal')];
     elements.forEach((element, i) => {
-      const delay = base + i * 70;
+      // Lead with the title, then show related rows together within a short window.
+      const delay = base + Math.min(i, 6) * 55;
       const isPhoto = element.matches('figure, .research-visual');
+      const isTitle = element.matches('h1,h2');
+      const isRow = element.matches('article, .research-item');
+      const start = isPhoto ? 'perspective(1400px) translateY(14px) rotateY(-1.2deg) scale(.985)'
+        : isTitle ? 'translateX(18px)' : isRow ? 'translateX(12px)' : 'translateY(8px)';
       animate(element, [
-        { opacity: 0, transform: isPhoto ? 'translateY(16px) scale(.98)' : 'translateY(16px)' },
-        { opacity: 1, transform: 'translateY(0) scale(1)' }
-      ], { duration: isPhoto ? 700 : 540, delay });
-      element.querySelectorAll('.count-text').forEach(number => countUp(number, delay + 120));
+        { opacity: 0, transform: start },
+        { opacity: 1, transform: 'translate(0,0)' }
+      ], { duration: isPhoto ? 640 : isTitle ? 540 : 420, delay });
+      element.querySelectorAll('.count-text').forEach(number => countUp(number, delay + 90));
     });
     if (active.classList.contains('history')) playTimeline(base + 340);
     const photo = active.querySelector('.cover-image img, .closing-photo, .learning-image img');
@@ -153,7 +207,7 @@
     ], { duration: 700, delay: base + 140 });
   }
 
-  function go(index, { instant = false, updateHash = true, replay = false } = {}) {
+  function go(index, { instant = false, updateHash = true, replay = false, card = 0 } = {}) {
     if (!Number.isFinite(index)) return;
     index = Math.max(0, Math.min(slides.length - 1, Math.trunc(index)));
     const old = slides[current];
@@ -162,8 +216,15 @@
     if (!changed && !instant && !replay) return;
     deck.classList.toggle('motion-instant', instant || reduced.matches);
     const run = ++generation;
+    // Freeze the outgoing visual at its actual pose before cancelling interrupted entries.
+    const outgoing = changed && !instant && !reduced.matches
+      ? [old, ...old.querySelectorAll('.reveal, .milestone-copy')].map(element => {
+        const style = getComputedStyle(element);
+        return {element, opacity: style.opacity, transform: style.transform};
+      }) : [];
     cancelAnimations();
     current = index;
+    setResearchCard(changed || replay ? card : researchCard, true);
     const active = slides[current];
     slides.forEach((slide, i) => {
       const selected = i === current;
@@ -183,23 +244,29 @@
     next.disabled = current === slides.length - 1;
     if (updateHash) history.replaceState(null, '', `#${current + 1}`);
     measureTimeline();
+    window.__spatial?.activate(active, instant || reduced.matches);
+    if (current === 5 && researchCard === 1) window.__spatial?.hold(2400);
     if (instant || reduced.matches) return;
 
     if (changed) {
       old.classList.add('exiting');
-      animate(old, [{ opacity: 1 }, { opacity: 0 }], { duration: 220 });
+      outgoing.slice(1).forEach(({element, opacity, transform}) => {
+        animate(element, [{opacity, transform}, {opacity, transform}], {duration:280});
+      });
+      animate(old, [
+        {opacity: outgoing[0]?.opacity ?? 1, transform: outgoing[0]?.transform ?? 'none'},
+        {opacity: 0, transform: `translateX(${-direction * 24}px)`}
+      ], {duration:280});
       const photoPage = active.matches('.cover,.learning,.campuses,.life,.closing') && !portrait.matches;
-      const enter = animate(active, photoPage ? [
-        { clipPath: direction > 0 ? 'inset(0 100% 0 0)' : 'inset(0 0 0 100%)' },
-        { clipPath: 'inset(0 0 0 0)' }
-      ] : [
-        { opacity: 0 }, { opacity: 1 }
-      ], { duration: photoPage ? 700 : 400, delay: photoPage ? 0 : 140 });
+      const enter = animate(active, [
+        {opacity:0, transform:`perspective(1800px) translateX(${direction * (photoPage ? 48 : 28)}px) rotateY(${direction * .65}deg)`},
+        {opacity:1, transform:'perspective(1800px) translateX(0) rotateY(0deg)'}
+      ], {duration:photoPage ? 620 : 480});
       enter.finished.then(() => {
         if (run === generation) old.classList.remove('exiting');
       }).catch(() => {});
     }
-    revealContent(active, changed ? 230 : 70);
+    revealContent(active, changed ? 100 : 50);
   }
 
   document.querySelectorAll('.metric-button').forEach(button => {
@@ -218,6 +285,10 @@
   function openOverview() {
     if (overview.open) return;
     overview.showModal();
+    if (!reduced.matches) overview.animate([
+      {opacity:0, transform:'translateY(8px) scale(.98)'},
+      {opacity:1, transform:'translateY(0) scale(1)'}
+    ], {duration:220, easing:ease});
     overviewGrid.children[current].focus();
   }
   openIndex.addEventListener('click', openOverview);
@@ -228,8 +299,8 @@
     if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) overview.close();
   });
   overview.addEventListener('close', () => openIndex.focus({ preventScroll: true }));
-  prev.addEventListener('click', () => go(current - 1));
-  next.addEventListener('click', () => go(current + 1));
+  prev.addEventListener('click', () => navigate(-1));
+  next.addEventListener('click', () => navigate(1));
 
   async function toggleFullscreen() {
     try {
@@ -256,10 +327,10 @@
     if (event.key === ' ' && interactive) return;
     if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(event.key)) {
       event.preventDefault();
-      go(current + 1);
+      navigate(1);
     } else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(event.key)) {
       event.preventDefault();
-      go(current - 1);
+      navigate(-1);
     } else if (event.key === 'Home') {
       event.preventDefault(); go(0);
     } else if (event.key === 'End') {
@@ -283,7 +354,7 @@
     const dx = touch.clientX - touchStart.x;
     const dy = touch.clientY - touchStart.y;
     touchStart = null;
-    if (Math.abs(dx) > 65 && Math.abs(dx) > Math.abs(dy) * 1.8) go(current + (dx < 0 ? 1 : -1));
+    if (Math.abs(dx) > 65 && Math.abs(dx) > Math.abs(dy) * 1.8) navigate(dx < 0 ? 1 : -1);
   }, { passive: true });
   deck.addEventListener('touchcancel', () => { touchStart = null; }, { passive: true });
 
@@ -302,8 +373,8 @@
   window.__deck = {
     go: (index, instant = false) => go(index, { instant }),
     replay: () => go(current, { replay: true }),
-    state: () => ({ index: current, total: slides.length, title: slides[current].dataset.title, reducedMotion: reduced.matches }),
-    hold: milliseconds => animations.forEach(animation => { animation.pause(); animation.currentTime = milliseconds; }),
+    state: () => ({ index: current, total: slides.length, title: slides[current].dataset.title, reducedMotion: reduced.matches, researchCard }),
+    hold: milliseconds => { [...animations,...cardAnimations].forEach(animation => { animation.pause(); animation.currentTime = milliseconds; }); window.__spatial?.hold(milliseconds); },
     settle: () => go(current, { instant: true })
   };
 })();

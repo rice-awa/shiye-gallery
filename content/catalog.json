@@ -124,12 +124,13 @@
     ],
     "order": 13
   },
-  "presentations/bupt/index.html": {
-    "title": "北京邮电大学 / 连接世界，从北邮出发",
-    "description": "渐次入场、数字动效与校史进度线，十二页认识北邮。",
+  "presentations/bupt-v3/index.html": {
+    "title": "北京邮电大学 / 空间连接",
+    "description": "Three.js 信号地球、学科交叉与卫星链路，十二页立体认识北邮。",
     "tags": [
       "高校介绍",
-      "校园",
+      "Three.js",
+      "3D",
       "交互演示"
     ],
     "order": -1
