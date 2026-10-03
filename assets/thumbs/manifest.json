@@ -62,5 +62,9 @@
   "/pelican-ride": {
     "hash": "827c7e5821be3e2bf853ddf3f9f8d788d9e560dd3ab2e4894b9fa4ba79194055",
     "thumbnail": "pelican-ride.webp"
+  },
+  "/murmur-promo": {
+    "hash": "7ef37e0b0ecc592be53558c9878702a41c9848df6ccdd87c7caacb78d17496d0",
+    "thumbnail": "murmur-promo.webp"
   }
 }

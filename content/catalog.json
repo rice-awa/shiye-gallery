@@ -144,5 +144,14 @@
       "创意编程"
     ],
     "order": -2
+  },
+  "vedio/murmur-promo.html": {
+    "title": "murmur / 一句话，一个应用",
+    "description": "21 秒演示短片：在终端说出一句描述，界面、动效与天气应用随之长成。",
+    "tags": [
+      "动画",
+      "创意编程"
+    ],
+    "order": -3
   }
 }

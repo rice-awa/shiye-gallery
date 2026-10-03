@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>murmur — say it, and it exists</title>
+<style>
+:root{
+  --bg:#0b0907; --cream:#f3e9d8; --dim:#8d8374; --amber:#ffb04a;
+  --sans:Inter,"SF Pro Display","Segoe UI Variable Display","Segoe UI","Helvetica Neue",Arial,"Microsoft YaHei","PingFang SC",sans-serif;
+  --mono:"JetBrains Mono","Cascadia Mono","SF Mono",Menlo,Consolas,"Courier New",monospace;
+}
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+#vp{position:fixed;inset:0;background:#000}
+#stage{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;overflow:hidden;background:var(--bg);font-family:var(--sans);color:var(--cream)}
+#bg{position:absolute;left:0;top:0}
+#world{position:absolute;left:0;top:0;width:0;height:0;transform-origin:0 0}
+#vig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 75% 70% at 50% 50%,rgba(0,0,0,0) 45%,rgba(0,0,0,.55) 100%)}
+#fade{position:absolute;inset:0;background:#000;pointer-events:none;opacity:0}
+.abs{position:absolute;left:0;top:0}
+
+/* terminal */
+#term{position:absolute;left:460px;top:476px;width:1000px;height:128px;box-sizing:border-box;border-radius:26px;overflow:hidden;
+  background:linear-gradient(180deg,#171411,#12100d);border:1px solid rgba(255,236,210,.10);
+  box-shadow:0 60px 140px -40px rgba(0,0,0,.9),0 0 0 1px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,240,220,.06)}
+#term .chev{position:absolute;left:34px;top:46px;width:16px;height:26px}
+#cmd{position:absolute;left:84px;top:36px;font:500 30px/56px var(--mono);white-space:pre;color:var(--cream)}
+#cmd .a{color:var(--amber)}
+.ln{position:absolute;left:0;right:0;height:56px;font:400 26px/56px var(--mono);color:rgba(243,233,216,.88);white-space:pre}
+.ln .tx{position:absolute;left:80px;top:0}
+.ln .mt{position:absolute;right:40px;top:0;color:var(--dim);font-size:22px}
+.ln svg{position:absolute;left:36px;top:17px;width:22px;height:22px}
+#blk{position:absolute;left:0;top:0;background:var(--amber);will-change:transform}
+
+/* weather app */
+#cellA{position:absolute;left:470px;top:230px;width:980px;height:620px}
+#app{position:absolute;left:0;top:0;width:980px;height:620px;overflow:hidden;border-radius:34px;background:var(--amber);
+  font-family:var(--sans);color:#fff}
+#app > *{position:absolute}
+#sun{left:-70px;top:-70px;width:140px;height:140px;border-radius:50%;
+  background:radial-gradient(circle at 50% 50%,#fffbe8 0 38%,#ffe9a8 52%,rgba(255,225,150,0) 71%)}
+#hello1{left:58px;top:50px;font-size:27px;font-weight:500;letter-spacing:.01em;opacity:.0}
+#hello2{left:56px;top:78px;font-size:68px;font-weight:650;letter-spacing:-.025em;line-height:1.05}
+#place{left:58px;top:168px;font:500 19px/1 var(--mono);letter-spacing:.02em;padding:9px 16px;border-radius:99px;background:rgba(255,255,255,.2)}
+#temp{left:44px;top:214px;font-size:236px;font-weight:200;line-height:1;letter-spacing:-.05em;white-space:nowrap}
+#chips{left:58px;top:462px;white-space:nowrap}
+#chips span{display:inline-block;margin-right:12px;font-size:21px;font-weight:550;padding:10px 20px;border-radius:99px;background:rgba(255,255,255,.22)}
+#hours{left:646px;top:46px;width:288px;height:396px;border-radius:26px;background:rgba(255,255,255,.2);overflow:hidden}
+.hr{position:absolute;left:0;right:0;height:60px;font-size:22px;font-weight:550}
+.hr .hl{position:absolute;inset:4px 10px;border-radius:16px;background:rgba(255,255,255,.4)}
+.hr .tm{position:absolute;left:26px;top:0;line-height:60px;font-family:var(--mono);font-size:20px;opacity:.85}
+.hr .br{position:absolute;left:92px;top:26px;height:8px;border-radius:8px;background:currentColor;opacity:.7}
+.hr .tp{position:absolute;right:26px;top:0;line-height:60px}
+#scrub{left:56px;top:536px;width:868px;height:60px}
+#scrub .trk{position:absolute;left:0;top:27px;width:868px;height:6px;border-radius:6px;background:rgba(255,255,255,.28)}
+#scrub .fil{position:absolute;left:0;top:27px;height:6px;border-radius:6px;background:currentColor;opacity:.9}
+#scrub .hdl{position:absolute;top:12px;width:36px;height:36px;margin-left:-18px;border-radius:50%;background:#fff;box-shadow:0 6px 20px rgba(0,0,0,.28)}
+#scrub .tmr{position:absolute;top:-34px;font:600 19px/1 var(--mono);margin-left:-40px;width:80px;text-align:center}
+#ground{left:0;top:470px;width:980px;height:150px;background:linear-gradient(180deg,rgba(0,0,0,0),rgba(30,10,40,.16))}
+#applab,.cell .lab{position:absolute;left:0;top:650px;width:980px;text-align:center;font:500 34px/1 var(--mono);color:var(--cream);opacity:.0;white-space:nowrap}
+
+/* wall */
+.cell{position:absolute;width:980px;height:620px;transform-origin:50% 50%}
+.tile{position:absolute;left:0;top:0;width:980px;height:620px;border-radius:34px;overflow:hidden;box-shadow:0 40px 90px -30px rgba(0,0,0,.7)}
+.tile > *{position:absolute}
+.tile .nm{left:48px;top:40px;font-size:34px;font-weight:650;letter-spacing:-.02em}
+.tile .sb{right:48px;top:48px;font:500 20px/1 var(--mono);opacity:.6}
+
+/* words */
+.w{position:absolute;white-space:nowrap;line-height:1;font-family:var(--sans)}
+#tag{font-size:48px;font-weight:500;letter-spacing:-.01em;color:var(--cream)}
+#tag2{font-size:30px;font-weight:400;letter-spacing:.12em;color:var(--dim)}
+#inst{position:absolute;left:660px;top:872px;width:600px;height:88px;box-sizing:border-box;border-radius:24px;background:#16130f;border:1px solid rgba(255,236,210,.12);
+  box-shadow:0 30px 80px -30px rgba(0,0,0,.8)}
+#inst .chev{position:absolute;left:30px;top:30px;width:14px;height:24px}
+#instT{position:absolute;left:68px;top:0;font:500 28px/88px var(--mono);white-space:pre;color:var(--cream)}
+#instC{position:absolute;top:28px;width:14px;height:32px;border-radius:3px;background:var(--amber)}
+
+/* cursor */
+#cur{position:absolute;left:0;top:0;width:34px;height:44px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}
+
+/* controls */
+#bar{position:fixed;left:0;right:0;bottom:0;height:22px;cursor:pointer;opacity:0;transition:opacity .25s}
+#vp:hover #bar{opacity:1}
+#bar i{position:absolute;left:0;bottom:0;height:4px;width:0;background:var(--amber)}
+#bar b{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.12)}
+#hint{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);font:500 13px/1 var(--mono);color:rgba(255,255,255,.4);opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+#vp:hover #hint{opacity:1}
+#snd{position:fixed;left:50%;top:26px;transform:translateX(-50%);font:500 14px/1 var(--mono);letter-spacing:.04em;color:rgba(243,233,216,.85);background:rgba(20,16,12,.72);border:1px solid rgba(255,176,74,.35);padding:10px 18px;border-radius:99px;pointer-events:none;animation:pulse 1.8s ease-in-out infinite;white-space:nowrap;transition:opacity .4s}
+#snd.on{animation:none;opacity:0;transition:opacity 1.2s 1.6s}
+@keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+
+/* screen-recording mode — H hides all chrome */
+body.noui #bar,body.noui #hint,body.noui #snd{display:none}
+body.noui{cursor:none}
+#toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);z-index:9;font:500 13px/1 var(--mono);color:rgba(243,233,216,.9);
+  background:rgba(20,16,12,.8);border:1px solid rgba(255,176,74,.3);padding:11px 18px;border-radius:99px;pointer-events:none;white-space:nowrap;opacity:0;transition:opacity .35s}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div id="vp">
+ <div id="stage">
+  <canvas id="bg" width="1920" height="1080"></canvas>
+  <div id="world">
+    <div id="wall"></div>
+    <div id="term">
+      <svg class="chev" viewBox="0 0 16 26"><path d="M3 3l10 10L3 23" fill="none" stroke="#ffb04a" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div id="cmd"><span class="a"></span><span class="b"></span></div>
+      <div id="lines"></div>
+    </div>
+    <div id="cellA">
+      <div id="app">
+        <div id="sun"></div>
+        <div id="ground"></div>
+        <div id="hello1">Good morning,</div>
+        <div id="hello2">Ana.</div>
+        <div id="place">LISBON · CLEAR</div>
+        <div id="temp">8°</div>
+        <div id="chips"><span>Clear</span><span>UV 2</span><span>Wind 6 km/h</span></div>
+        <div id="hours"></div>
+        <div id="scrub"><div class="trk"></div><div class="fil"></div><div class="hdl"></div><div class="tmr">05:42</div></div>
+      </div>
+      <div id="applab">› a weather app that feels like morning</div>
+    </div>
+    <div id="blk"></div>
+    <div id="wordsL"></div>
+    <div class="w" id="tag">Describe it. Get the app.</div>
+    <div class="w" id="tag2">一 句 话 ， 一 个 应 用</div>
+    <div id="inst">
+      <svg class="chev" viewBox="0 0 16 26"><path d="M3 3l10 10L3 23" fill="none" stroke="#ffb04a" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div id="instT"></div><div id="instC"></div>
+    </div>
+    <svg id="cur" viewBox="0 0 34 44"><path d="M4 3 L30 22 L18 24 L26 40 L20 43 L12 27 L4 36 Z" fill="#fff" stroke="#111" stroke-width="2.5" stroke-linejoin="round"/></svg>
+  </div>
+  <div id="vig"></div>
+  <div id="fade"></div>
+ </div>
+ <div id="bar"><b></b><i></i></div>
+ <div id="hint">click · pause &nbsp; R · replay &nbsp; ← → · seek &nbsp; M · mute &nbsp; H · hide UI</div>
+ <div id="snd">♪ click for sound</div>
+ <div id="toast"></div>
+</div>
+<script>// onetake · © 2026 Patrick (github.com/feitangyuan) · PolyForm Noncommercial 1.0.0 · lineage otk-7f3e1c
+/* onetake · lib/motion.js — the genre's moves as pure functions of time.
+ *
+ * Numbers in, numbers out. Nothing here touches the DOM or a canvas, so one call drives
+ * `el.style.transform` or `ctx.setTransform` alike. No state and no Math.random: the same arguments
+ * always give the same answer, which is what `__seek(t)` needs. The four sims and the camera rig integrate, so
+ * they run once at 240 Hz and are sampled by time.
+ *
+ * Every move comes from a film that was accepted — motion-web-15s (MW), pocket-weather-15s (PW), one-dot-15s (OD) —
+ * and has a sheet in gallery/sheets/<name>.png. Catalogue, curve table, carry grammar:
+ * references/motion-library.md.
+ *
+ * Classic script (file:// pages cannot import modules): <script src="motion.js"><\/script> → window.OM.
+ * Node: const OM = require('./motion.js').
+ *
+ *   curves   ease.* · bezier · tween · t80 · spring · springVel · ring · settle · spline · rng
+ *   enter    wordRise · letterDrop · popIn · liftOut · maskRise · typeOn · tick · flyThrough
+ *   carry    morphRect · iris · zoomThrough · hop · gather · ribbon · seal · staccato
+ *   contact  impact · impactSplit · press · cursor · squash · sim.{magnet, follow, jelly, verlet}
+ *   camera   camera · view · dof · whip · shake · drift · lattice · project · unproject · projectBox · screenTravel
+ *   fluid    swiftSpring · lightField · ripple · silk · carouselLoop
+ */
+(function (root) {
+  'use strict';
+
+  // ─────────────────────────────── scalars ───────────────────────────────
+  const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const seg = (t, t0, t1) => (t1 === t0 ? (t >= t1 ? 1 : 0) : clamp((t - t0) / (t1 - t0), 0, 1));
+  const sstep = (e0, e1, x) => { const k = clamp((x - e0) / (e1 - e0), 0, 1); return k * k * (3 - 2 * k); };
+  const ssstep = (e0, e1, x) => { const k = clamp((x - e0) / (e1 - e0), 0, 1); return k * k * k * (k * (k * 6 - 15) + 10); };
+
+  // ─────────────────────────────── curves ───────────────────────────────
+  // t80 = share of the duration spent before 80 % of the distance is covered. Low = snaps then settles
+  // (launch-clip feel); ~.7 = symmetric S-curve (soft, reads as a web transition when used for travel).
+  const powOut = n => u => 1 - Math.pow(1 - u, n);
+  const powInOut = n => u => (u < 0.5 ? Math.pow(2, n - 1) * Math.pow(u, n) : 1 - Math.pow(-2 * u + 2, n) / 2);
+  const EXPO = 1 - Math.pow(2, -10);
+  const ease = {
+    linear: u => u,                                              // t80 .80
+    smooth: u => u * u * (3 - 2 * u),                            // t80 .71 smoothstep
+    smoother: u => u * u * u * (u * (u * 6 - 15) + 10),          // t80 .67 smootherstep — PW's travel curve
+    sineInOut: u => -(Math.cos(Math.PI * u) - 1) / 2,
+    cubicInOut: powInOut(3),                                     // camera legs that start and stop at rest
+    quintInOut: powInOut(5),
+    quadOut: powOut(2),                                          // t80 .55
+    cubicOut: powOut(3),                                         // t80 .42
+    quartOut: powOut(4),                                         // t80 .33
+    quintOut: powOut(5),                                         // t80 .28
+    expoOut: u => (u <= 0 ? 0 : u >= 1 ? 1 : (1 - Math.pow(2, -10 * u)) / EXPO),   // t80 .23
+    expoIn: u => (u <= 0 ? 0 : u >= 1 ? 1 : (Math.pow(2, 10 * u) - 1) / 1023),
+    expoInOut: u => (u < 0.5 ? ease.expoIn(2 * u) / 2 : 1 - ease.expoIn(2 - 2 * u) / 2),  // whips
+    circOut: u => Math.sqrt(1 - Math.pow(1 - clamp(u), 2)),
+    backOut: u => { const s = 1.70158; return 1 + (s + 1) * Math.pow(u - 1, 3) + s * Math.pow(u - 1, 2); },
+    back: (s = 1.70158) => u => 1 + (s + 1) * Math.pow(u - 1, 3) + s * Math.pow(u - 1, 2),
+  };
+
+  // CSS cubic-bezier(x1, y1, x2, y2) as a function of u — for curves taken from a spec or a reference.
+  function bezier(x1, y1, x2, y2) {
+    const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx, cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+    const sx = s => ((ax * s + bx) * s + cx) * s, sy = s => ((ay * s + by) * s + cy) * s, dsx = s => (3 * ax * s + 2 * bx) * s + cx;
+    const solve = x => {
+      let s = x;
+      for (let i = 0; i < 8; i++) {
+        const e = sx(s) - x; if (Math.abs(e) < 1e-7) return s;
+        const d = dsx(s); if (Math.abs(d) < 1e-6) break;
+        s -= e / d; if (s < 0 || s > 1) break;
+      }
+      let lo = 0, hi = 1; s = x;
+      for (let i = 0; i < 60; i++) { const v = sx(s); if (Math.abs(v - x) < 1e-7) return s; if (x > v) lo = s; else hi = s; s = (lo + hi) / 2; }
+      return s;
+    };
+    return u => (u <= 0 ? 0 : u >= 1 ? 1 : sy(solve(u)));
+  }
+
+  const tween = (t, t0, t1, curve = ease.expoOut) => curve(seg(t, t0, t1));
+
+  function t80(curve, frac = 0.8, steps = 4000) {
+    for (let i = 0; i <= steps; i++) { const u = i / steps; if (curve(u) >= frac) return u; }
+    return 1;
+  }
+
+  // Damped spring step response 0 → 1 from rest. zeta < 1 overshoots (.4 bouncy … .8 firm), 1 is critical.
+  function spring(tau, zeta = 0.6, omega = 20) {
+    if (tau <= 0) return 0;
+    if (zeta < 1) { const wd = omega * Math.sqrt(1 - zeta * zeta); return 1 - Math.exp(-zeta * omega * tau) * (Math.cos(wd * tau) + (zeta * omega / wd) * Math.sin(wd * tau)); }
+    if (zeta === 1) return 1 - Math.exp(-omega * tau) * (1 + omega * tau);
+    const q = omega * Math.sqrt(zeta * zeta - 1), r1 = -zeta * omega + q, r2 = -zeta * omega - q;
+    return 1 - (r2 * Math.exp(r1 * tau) - r1 * Math.exp(r2 * tau)) / (r2 - r1);
+  }
+
+  // d/dtau of spring(): progress per second. Use it for squash-from-velocity.
+  function springVel(tau, zeta = 0.6, omega = 20) {
+    if (tau <= 0) return 0;
+    if (zeta < 1) { const s = Math.sqrt(1 - zeta * zeta); return (omega / s) * Math.exp(-zeta * omega * tau) * Math.sin(omega * s * tau); }
+    if (zeta === 1) return omega * omega * tau * Math.exp(-omega * tau);
+    const q = omega * Math.sqrt(zeta * zeta - 1), r1 = -zeta * omega + q, r2 = -zeta * omega - q;
+    return omega * omega * (Math.exp(r1 * tau) - Math.exp(r2 * tau)) / (r1 - r2);
+  }
+
+  // Decaying oscillation around 0 — a click, a landing, a wobble that rings out.
+  function ring(tau, decay = 9, omega = 26) { return tau <= 0 ? 0 : Math.exp(-decay * tau) * Math.sin(omega * tau); }
+
+  // Seconds until spring() stays within eps of 1 — for planning how long a beat must hold.
+  function settle(zeta = 0.6, omega = 20, eps = 0.02) {
+    let last = 0;
+    for (let i = 1; i <= 20000; i++) { const t = i / 1000; if (Math.abs(1 - spring(t, zeta, omega)) > eps) last = t; }
+    return last;
+  }
+
+  // Hermite curve through {t, x, y} knots — the hand path.
+  function spline(knots, t) {
+    if (t <= knots[0].t) return [knots[0].x, knots[0].y];
+    const L = knots.length; if (t >= knots[L - 1].t) return [knots[L - 1].x, knots[L - 1].y];
+    let i = 0; while (knots[i + 1].t < t) i++;
+    const k0 = knots[i], k1 = knots[i + 1], h = k1.t - k0.t, u = (t - k0.t) / h, km = knots[Math.max(0, i - 1)], kp = knots[Math.min(L - 1, i + 2)];
+    const m0x = (k1.x - km.x) / (k1.t - km.t) * h, m0y = (k1.y - km.y) / (k1.t - km.t) * h, m1x = (kp.x - k0.x) / (kp.t - k0.t) * h, m1y = (kp.y - k0.y) / (kp.t - k0.t) * h;
+    const h00 = 2 * u ** 3 - 3 * u ** 2 + 1, h10 = u ** 3 - 2 * u ** 2 + u, h01 = -2 * u ** 3 + 3 * u ** 2, h11 = u ** 3 - u ** 2;
+    return [h00 * k0.x + h10 * m0x + h01 * k1.x + h11 * m1x, h00 * k0.y + h10 * m0y + h01 * k1.y + h11 * m1y];
+  }
+
+  // xorshift32 — for layout jitter decided once in setup, never on the render path.
+  function rng(seed = 1) {
+    let s = (seed >>> 0) || 1;
+    return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 4294967296; };
+  }
+
+  // ─────────────────────────────── enter ───────────────────────────────
+  // MW · a word lands: spring rise + a little scale. Opacity leads the spring so it never reads as a fade.
+  function wordRise(t, t0, { zeta = 0.6, omega = 22, dist = 26, s0 = 0.94, ds = 0.06, fade = 1.5 } = {}) {
+    const k = spring(t - t0, zeta, omega);
+    return { k, op: clamp(k * fade, 0, 1), y: (1 - k) * dist, s: s0 + ds * k };
+  }
+
+  // MW · wordmark letter i drops in; speed flattens it (sy) and widens it (sx), recovering as it settles.
+  function letterDrop(t, t0, i, { stagger = 0.055, zeta = 0.5, omega = 26, dist = 46, squash = 0.0075, max = 0.22, widen = 0.6, fade = 1.6, h = 0.012 } = {}) {
+    const tau = t - t0 - i * stagger;
+    const k = spring(tau, zeta, omega), dk = (spring(tau, zeta, omega) - spring(tau - h, zeta, omega)) / h;
+    const sq = clamp(Math.abs(dk) * squash, 0, max);
+    return { k, sq, op: clamp(k * fade, 0, 1), y: (1 - k) * dist, sx: 1 + sq * widen, sy: 1 - sq };
+  }
+
+  // MW · card entrance: spring rise with scale.
+  function popIn(t, t0, { zeta = 0.62, omega = 18, rise = 36, s0 = 0.94, ds = 0.06, fade = 1.5 } = {}) {
+    const k = spring(t - t0, zeta, omega);
+    return { k, op: clamp(k * fade, 0, 1), s: s0 + ds * k, dy: (1 - k) * rise };
+  }
+
+  // MW · card exit: lifts, grows a touch and blurs away over `dur`.
+  function liftOut(t, t1, { dur = 0.22, dir = -1, dist = 90, blur = 10, grow = 0.03 } = {}) {
+    const k = ssstep(t1, t1 + dur, t);
+    return { k, op: 1 - k, dy: dir * k * dist, blur: k * blur, s: 1 + grow * k };
+  }
+
+  // PW · line i rises into place from behind a clip mask. y is a fraction of `dist` (pass the line height).
+  function maskRise(t, t0, i = 0, { stagger = 0.13, zeta = 0.47, omega = 17, dist = 1 } = {}) {
+    const k = spring(t - t0 - i * stagger, zeta, omega);
+    return { k, y: (1 - k) * dist, visible: k > 0 };
+  }
+
+  // MW · typed prompt: characters at cps, caret solid while typing, blinking after.
+  function typeOn(t, t0, text, { cps = 38, blink = 2.4 } = {}) {
+    const n = clamp(Math.floor((t - t0) * cps), 0, text.length);
+    return { n, str: text.slice(0, n), done: n >= text.length, caret: (n < text.length || Math.floor(t * blink) % 2 === 0) ? 1 : 0 };
+  }
+
+  // MW · checkbox tick at tl: pops from .8 with a spring.
+  function tick(t, tl, { zeta = 0.5, omega = 28 } = {}) {
+    const on = t >= tl, k = spring(t - tl, zeta, omega);
+    return { on, k, s: on ? (0.8 + 0.2 * k + 0.25 * (1 - k)) : 1 };
+  }
+
+  // MW · a screen flies in tilted from the right, holds, flies out left. For CSS:
+  // translate(x) perspective(2200px) rotateY(rotY) rotateX(rotX) scale(s), filter blur(blur).
+  function flyThrough(t, t0, hold, { from = 1500, to = 0, exit = -1700, zeta = 0.78, omega = 14, out = 0.28,
+    blurIn = 10, blurOut = 12, rotY0 = -18, rotY1 = -9, rotOut = 10, rotX = 4, s0 = 0.92, pre = 0.02, post = 0.35 } = {}) {
+    const t1 = t0 + hold, visible = t >= t0 - pre && t < t1 + post;
+    const kin = spring(t - t0, zeta, omega), kout = ssstep(t1, t1 + out, t), kc = Math.min(1, kin);
+    return { visible, kin, kout, x: lerp(from, to, kin) + kout * exit, blur: Math.max((1 - kc) * blurIn, kout * blurOut),
+      rotY: lerp(rotY0, rotY1, kc) + kout * rotOut, rotX, s: lerp(s0, 1, kc), op: 1 - kout };
+  }
+
+  // ─────────────────────────────── carry — the next shot grows out of this one ───────────────────────────────
+  // PW · container transform: rect A (a card, a button) becomes rect B (the page). {x, y, w, h, r?}, x/y top-left.
+  function morphRect(t, t0, t1, A, B, { curve = ease.expoOut, spring: sp = null } = {}) {
+    const k = sp ? spring(t - t0, sp.zeta ?? 0.7, sp.omega ?? 16) : curve(seg(t, t0, t1));
+    const x = lerp(A.x, B.x, k), y = lerp(A.y, B.y, k), w = lerp(A.w, B.w, k), h = lerp(A.h, B.h, k);
+    return { k, x, y, w, h, r: lerp(A.r ?? 0, B.r ?? 0, k), cx: x + w / 2, cy: y + h / 2 };
+  }
+
+  // PW · a circular stage opens from the subject at (cx, cy) until it covers the whole frame.
+  function iris(t, t0, t1, cx, cy, { W = 1920, H = 1080, curve = ease.expoOut, r0 = 0 } = {}) {
+    const k = curve(seg(t, t0, t1));
+    const far = Math.max(Math.hypot(cx, cy), Math.hypot(W - cx, cy), Math.hypot(cx, H - cy), Math.hypot(W - cx, H - cy)) + 2;
+    return { k, cx, cy, r: lerp(r0, far, k), covered: k >= 1 };
+  }
+
+  // Camera pushes into `target` {x, y, w, h} until it fills the frame; its inside becomes the next scene.
+  // screen = world·s + (tx, ty) → CSS matrix(...matrix) with transform-origin 0 0, or ctx.setTransform(...matrix).
+  function zoomThrough(t, t0, t1, target, { W = 1920, H = 1080, curve = ease.expoInOut, fit = 'cover' } = {}) {
+    const k = curve(seg(t, t0, t1));
+    const sEnd = fit === 'contain' ? Math.min(W / target.w, H / target.h) : Math.max(W / target.w, H / target.h);
+    const s = Math.exp(Math.log(sEnd) * k);                       // log space: the zoom reads as one speed
+    const tcx = target.x + target.w / 2, tcy = target.y + target.h / 2;
+    const px = lerp(tcx, W / 2, k), py = lerp(tcy, H / 2, k);      // the target's centre travels to the frame centre
+    const tx = px - s * tcx, ty = py - s * tcy;
+    return { k, s, tx, ty, matrix: [s, 0, 0, s, tx, ty] };
+  }
+
+  // PW · the subject hops between slots on an arc.
+  function hop(t, t0, t1, from, to, { height = 200, curve = ease.smoother } = {}) {
+    const k = curve(seg(t, t0, t1));
+    return { k, x: lerp(from.x, to.x, k), y: lerp(from.y, to.y, k) - Math.sin(k * Math.PI) * height };
+  }
+
+  // PW · item i of n travels on an arc to its new place, fanning by index; stagger per item.
+  function gather(t, t0, t1, i, n, from, to, { stagger = 0.08, arc = 120, spin = 0.4, curve = ease.smoother } = {}) {
+    const k = curve(seg(t, t0 + i * stagger, t1 + i * stagger)), o = i - (n - 1) / 2, bump = Math.sin(k * Math.PI);
+    return { k, x: lerp(from.x, to.x, k), y: lerp(from.y, to.y, k) - bump * arc, rot: bump * o * spin };
+  }
+
+  // PW · an elastic rail of panels. Each switch time advances `shift` by one with a ring-out; text lags behind.
+  // Panel j sits at x = centre + (j − shift)·width + wobble.
+  function ribbon(t, switches, { dur = 0.35, amp = 55, decay = 7, omega = 22, tilt = 0.08, stretchX = 0.24, stretchY = 0.15, lag = 1.8, curve = ease.smoother } = {}) {
+    let shift = 0, r = 0;
+    for (const ts of switches) { shift += curve(seg(t, ts, ts + dur)); r += ring(t - ts, decay, omega); }
+    const stretch = Math.abs(r);
+    return { shift, index: Math.round(shift), wobble: r * amp, rot: r * tilt, sx: 1 + stretch * stretchX, sy: 1 - stretch * stretchY, textDx: -r * amp * lag };
+  }
+
+  // PW · the cast folds into a brand seal: a disc grows and turns.
+  function seal(t, t0, t1, { r = 235, turns = 1, curve = ease.smoother } = {}) {
+    const k = curve(seg(t, t0, t1));
+    return { k, r: r * k, rot: k * turns * Math.PI * 2 };
+  }
+
+  // MW · staccato hits: the word whose time has come. list = [[t, word], …]. Hard cuts, in a burst.
+  function staccato(t, list) {
+    let word = '', i = -1;
+    for (let j = 0; j < list.length; j++) if (t >= list[j][0]) { word = list[j][1]; i = j; }
+    return { word, i };
+  }
+
+  // ─────────────────────────────── contact — one thing causes another ───────────────────────────────
+  // PW · the ring of a landing. sx/sy squash the lander; feed r into whatever it lands on.
+  function impact(t, tHit, { decay = 7, omega = 22, sqx = 0.13, sqy = 0.16 } = {}) {
+    const r = ring(t - tHit, decay, omega);
+    return { r, sx: 1 + r * sqx, sy: 1 - r * sqy };
+  }
+
+  // PW · a landing at cx splits the headline: the glyph at x is pushed apart, bounces by its distance, rejoins.
+  function impactSplit(t, tHit, x, cx, { width = 600, spread = 65, bounce = 65, rot = 0.18, falloff = 3,
+    open = [-0.01, 0.48], close = [0.63, 0.98], decay = 7, omega = 22, curve = ease.smoother } = {}) {
+    const d = (x - cx) / width, r = ring(t - tHit, decay, omega);
+    const apart = curve(seg(t, tHit + open[0], tHit + open[1])) * (1 - curve(seg(t, tHit + close[0], tHit + close[1])));
+    return { dx: Math.sign(d) * apart * spread, dy: r * bounce * Math.exp(-d * d * falloff), rot: r * d * rot };
+  }
+
+  // MW · a button pressed at tc: rings in scale, `active` for the colour flash.
+  function press(t, tc, { depth = 0.16, decay = 10, omega = 30, flash = 0.4 } = {}) {
+    const cl = t - tc, sq = cl > 0 ? ring(cl, decay, omega) * depth : 0;
+    return { s: 1 + sq, sq, down: cl > 0, active: cl > 0 && cl < flash };
+  }
+
+  // MW · the hand: spline through knots, dips to `down` for `hold` s at each click.
+  function cursor(t, knots, clicks = [], { down = 0.84, hold = 0.14 } = {}) {
+    const p = spline(knots, t); let s = 1;
+    for (const c of clicks) { const d = t - c; if (d >= 0 && d < hold) s = down; }
+    return { x: p[0], y: p[1], s };
+  }
+
+  // MW · stretch along the direction of travel, thin across it (velocity in px/s).
+  function squash(vx, vy, { k = 0.0012, max = 0.45, kY = 0.0008, maxY = 0.3 } = {}) {
+    const sp = Math.hypot(vx, vy);
+    return { speed: sp, ang: Math.atan2(vy, vx), sx: 1 + clamp(sp * k, 0, max), sy: 1 - clamp(sp * kY, 0, maxY) };
+  }
+
+  // MW · live mechanisms inside a card, driven by the hand. card = {t, out, x, y} (top-left, 460×270 space);
+  // the sim runs t … out + 0.3 once and `at(t)` samples it. Drawing stays in the composition.
+  const SDT = 1 / 240;
+  const sampler = (st, t0, per) => t => st[clamp(Math.floor((t - t0) / per), 0, st.length - 1)];
+  const sim = {
+    SDT,
+    magnet(card, hand, { B = { x: 230, y: 158 }, R = 150, pull = 0.36, K = 120, damp = 0.85 } = {}) {
+      const D = Math.pow(damp, SDT * 60); let x = 0, y = 0, vx = 0, vy = 0; const st = [];
+      for (let t = card.t; t <= card.out + 0.3; t += SDT) {
+        const h = hand(t); const dx = h[0] - (card.x + B.x), dy = h[1] - (card.y + B.y), d = Math.hypot(dx, dy); let tx = 0, ty = 0;
+        if (d < R) { const f = pull * (1 - (d / R) ** 2); tx = dx * f; ty = dy * f; }
+        vx += (tx - x) * K * SDT; vy += (ty - y) * K * SDT; vx *= D; vy *= D; x += vx * SDT; y += vy * SDT; st.push([x, y]);
+      }
+      return { st, per: SDT, B, at: sampler(st, card.t, SDT) };
+    },
+    follow(card, hand, { K = 70, damp = 0.88, home = [230, 140], box = [30, 430, 50, 240], reach = [40, 500, 40, 310] } = {}) {
+      const D = Math.pow(damp, SDT * 60); let x = home[0], y = home[1], vx = 0, vy = 0; const st = [];
+      for (let t = card.t; t <= card.out + 0.3; t += SDT) {
+        const h = hand(t); let tx = clamp(h[0] - card.x, box[0], box[1]), ty = clamp(h[1] - card.y, box[2], box[3]);
+        const inside = h[0] > card.x - reach[0] && h[0] < card.x + reach[1] && h[1] > card.y - reach[2] && h[1] < card.y + reach[3];
+        if (!inside) { tx = home[0]; ty = home[1]; }
+        vx += (tx - x) * K * SDT; vy += (ty - y) * K * SDT; vx *= D; vy *= D; x += vx * SDT; y += vy * SDT; st.push([x, y, vx, vy]);
+      }
+      return { st, per: SDT, at: sampler(st, card.t, SDT) };
+    },
+    // ring of radial springs with neighbour coupling, dented where the hand touches the surface
+    jelly(card, hand, { N = 48, C = { x: 230, y: 150 }, R0 = 78, K = 42, CP = 1800, damp = 0.962, reach = 60, dent = 14 } = {}) {
+      const D = Math.pow(damp, SDT * 60); const r = new Float32Array(N), v = new Float32Array(N); const st = []; let step = 0;
+      for (let t = card.t; t <= card.out + 0.3; t += SDT, step++) {
+        const h = hand(t); const hx = h[0] - (card.x + C.x), hy = h[1] - (card.y + C.y);
+        for (let i = 0; i < N; i++) {
+          const th = i / N * Math.PI * 2; const px = Math.cos(th) * R0 * (1 + r[i]), py = Math.sin(th) * R0 * (1 + r[i]); const d = Math.hypot(hx - px, hy - py);
+          let push = 0; if (d < reach) { push = -(1 - d / reach) * dent; }
+          const lap = r[(i + N - 1) % N] + r[(i + 1) % N] - 2 * r[i]; v[i] += (-r[i] * K + lap * CP + push) * SDT; v[i] *= D;
+        }
+        for (let i = 0; i < N; i++) r[i] += v[i] * SDT;
+        if (step % 4 === 0) st.push(Float32Array.from(r));
+      }
+      return { st, per: SDT * 4, N, C, R0, at: sampler(st, card.t, SDT * 4) };
+    },
+    // N nodes hanging from (ax, ay), pushed aside by the hand; samples are [x0, y0, x1, y1, …]
+    verlet(card, hand, { N = 16, L = 13, ax = 230, ay = 40, damp = 0.985, gravity = 1400, reach = 34, push = 2.2, iters = 3 } = {}) {
+      const px = new Float32Array(N), py = new Float32Array(N), ox = new Float32Array(N), oy = new Float32Array(N);
+      for (let i = 0; i < N; i++) { px[i] = ox[i] = ax; py[i] = oy[i] = ay + i * L; }
+      const st = []; let step = 0;
+      for (let t = card.t; t <= card.out + 0.3; t += SDT, step++) {
+        const h = hand(t); const hx = h[0] - card.x, hy = h[1] - card.y;
+        for (let i = 1; i < N; i++) {
+          let vx = (px[i] - ox[i]) * damp, vy = (py[i] - oy[i]) * damp; ox[i] = px[i]; oy[i] = py[i]; px[i] += vx; py[i] += vy + gravity * SDT * SDT;
+          const dx = px[i] - hx, dy = py[i] - hy, d = Math.hypot(dx, dy); if (d < reach && d > 0.01) { const f = (reach - d) / reach * push; px[i] += dx / d * f; py[i] += dy / d * f; }
+        }
+        for (let it = 0; it < iters; it++) {
+          px[0] = ax; py[0] = ay;
+          for (let i = 0; i < N - 1; i++) {
+            const dx = px[i + 1] - px[i], dy = py[i + 1] - py[i], d = Math.hypot(dx, dy) || 1e-6, c = (d - L) / d * 0.5;
+            if (i === 0) { px[1] -= dx * c * 2; py[1] -= dy * c * 2; } else { px[i] += dx * c; py[i] += dy * c; px[i + 1] -= dx * c; py[i + 1] -= dy * c; }
+          }
+        }
+        if (step % 4 === 0) { const s = new Float32Array(N * 2); for (let i = 0; i < N; i++) { s[i * 2] = px[i]; s[i * 2 + 1] = py[i]; } st.push(s); }
+      }
+      return { st, per: SDT * 4, N, at: sampler(st, card.t, SDT * 4) };
+    },
+  };
+
+  // ─────────────────────────────── camera ───────────────────────────────
+  // Keys {t, x, y, zoom?, rot?, curve?}; (x, y) is the world point at the frame centre. Zoom interpolates in log space.
+  function camera(t, keys, { curve = ease.cubicInOut, W = 1920, H = 1080 } = {}) {
+    const pick = k => ({ x: k.x ?? W / 2, y: k.y ?? H / 2, zoom: k.zoom ?? 1, rot: k.rot ?? 0 });
+    if (!keys.length) return { x: W / 2, y: H / 2, zoom: 1, rot: 0 };
+    if (t <= keys[0].t) return pick(keys[0]);
+    const L = keys.length; if (t >= keys[L - 1].t) return pick(keys[L - 1]);
+    let i = 0; while (keys[i + 1].t < t) i++;
+    const A = pick(keys[i]), B = pick(keys[i + 1]), k = (keys[i + 1].curve || curve)(seg(t, keys[i].t, keys[i + 1].t));
+    return { x: lerp(A.x, B.x, k), y: lerp(A.y, B.y, k), zoom: Math.exp(lerp(Math.log(A.zoom), Math.log(B.zoom), k)), rot: lerp(A.rot, B.rot, k) };
+  }
+
+  // Affine matrix [a, b, c, d, e, f] for a layer at `depth` seen through `cam`: CSS matrix(...) / ctx.setTransform(...).
+  // depth 0 = focus plane; > 0 farther (moves and zooms less); < 0 nearer (moves more).
+  function view(cam, { W = 1920, H = 1080, depth = 0 } = {}) {
+    const f = 1 / (1 + Math.max(-0.9, depth));
+    const cx = W / 2 + (cam.x - W / 2) * f, cy = H / 2 + (cam.y - H / 2) * f;
+    const z = Math.exp(Math.log(cam.zoom) * f), c = Math.cos(cam.rot * f) * z, s = Math.sin(cam.rot * f) * z;
+    return [c, s, -s, c, W / 2 - (c * cx - s * cy), H / 2 - (s * cx + c * cy)];
+  }
+
+  // Depth-of-field blur in px for a layer at `depth` when the camera focuses at `focus`.
+  const dof = (depth, focus = 0, { k = 10, max = 14 } = {}) => Math.min(max, Math.abs(depth - focus) * k);
+
+  // A whip: all of `dist` in `dur` on an expo in-out. Only reads with shutter blur (render.py --shutter).
+  function whip(t, t0, dur, dist, { curve = ease.expoInOut } = {}) {
+    const k = curve(seg(t, t0, t0 + dur));
+    return { k, d: dist * k };
+  }
+
+  // Camera shake after a hit: decaying, deterministic, starts from zero.
+  function shake(t, tHit, { amp = 12, decay = 9, freq = 19, seed = 1 } = {}) {
+    const tau = t - tHit; if (tau <= 0) return { x: 0, y: 0, rot: 0 };
+    const r = rng(seed), fx = freq * (1 + 0.1 * r()), fy = freq * (1.31 + 0.1 * r()), fr = freq * (0.77 + 0.1 * r());
+    const e = amp * Math.exp(-decay * tau), w = 2 * Math.PI * tau;
+    return { x: e * Math.sin(w * fx), y: 0.7 * e * Math.sin(w * fy), rot: 0.0015 * e * Math.sin(w * fr) };
+  }
+
+  // MW · slow push during a hold: scale 1 → 1 + amount across t0 … t1.
+  const drift = (t, t0, t1, amount = 0.07) => 1 + amount * seg(t, t0, t1);
+
+  // Through a view() matrix M: world → screen, screen → world, and a world box's bounds on screen.
+  const project = (M, x, y) => [M[0] * x + M[2] * y + M[4], M[1] * x + M[3] * y + M[5]];
+  const unproject = (M, x, y) => { const d = M[0] * M[3] - M[1] * M[2], u = x - M[4], v = y - M[5]; return [(M[3] * u - M[2] * v) / d, (M[0] * v - M[1] * u) / d]; };
+  function projectBox(M, b) {
+    const P = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]].map(p => project(M, p[0], p[1]));
+    const xs = P.map(p => p[0]), ys = P.map(p => p[1]), x0 = Math.min(...xs), y0 = Math.min(...ys);
+    return { x: x0, y: y0, w: Math.max(...xs) - x0, h: Math.max(...ys) - y0, op: b.op };
+  }
+
+  // How far the frame's corners move on screen between cameras c0 and c1 (following the world points under them at
+  // cMid): the camera's share of a page's window.__motion, from which render.py sizes each frame's shutter.
+  function screenTravel(c0, c1, cMid, { W = 1920, H = 1080, depth = 0 } = {}) {
+    const M0 = view(c0, { W, H, depth }), M1 = view(c1, { W, H, depth }), Mm = view(cMid, { W, H, depth });
+    let d = 0;
+    for (const [sx, sy] of [[0, 0], [W, 0], [0, H], [W, H]]) {
+      const [wx, wy] = unproject(Mm, sx, sy), p = project(M0, wx, wy), r = project(M1, wx, wy);
+      d = Math.max(d, Math.hypot(p[0] - r[0], p[1] - r[1]));
+    }
+    return d;
+  }
+
+  // OD · an operator, not keyframes. want(t) → {x, y, zoom, w}: what to frame, how tight, how fast to chase (rad/s).
+  // A spring per axis chases it — position ζ .8; zoom in log space, ζ .95 at .8 w — integrated once at `hz` and
+  // sampled, so moves lag, lean and settle while every frame stays a function of t. hits [[t, px, decay], …] shake.
+  // Output is quantised below what shows (1/16 px, 0.05 % zoom): a settled camera repeats its frame exactly and
+  // render.py skips the shutter. A snap faster than the spring outruns it: want the landing point ~0.15 s before
+  // the snap rather than chasing it (the one-dot film's first camera render lost its dot that way).
+ 
+  // OD · a far grid seen through `cam`: under ctx.setTransform(...matrix), a dot of radius r at every lattice point from
+  // (x0, y0) to (x1, y1) in steps of `spacing` — dots stay `px` on screen whatever the zoom. On an empty ground a
+  // camera move doesn't read without something farther back to slide against (one-dot: 48, depth 1.2, 1.4 px).
+  function lattice(cam, { depth = 1.2, spacing = 48, px = 1.4, W = 1920, H = 1080 } = {}) {
+    const M = view(cam, { W, H, depth }), c = [[0, 0], [W, 0], [0, H], [W, H]].map(p => unproject(M, p[0], p[1]));
+    const xs = c.map(p => p[0]), ys = c.map(p => p[1]);
+    return { matrix: M, spacing, r: px / Math.hypot(M[0], M[1]),
+      x0: Math.floor(Math.min(...xs) / spacing) * spacing, x1: Math.max(...xs), y0: Math.floor(Math.min(...ys) / spacing) * spacing, y1: Math.max(...ys) };
+  }
+
+  // ─────────────────────────────── fluid (FL · ebb) ───────────────────────────────
+  // SwiftUI's named springs: Spring(duration d, bounce b) is ζ = 1 − b, ω = 2π / d. .smooth b 0, .snappy .15, .bouncy .3.
+  const SWIFT = { smooth: 0, snappy: 0.15, bouncy: 0.3 };
+  function swiftSpring(tau, kind = 'smooth', { duration = 0.5, bounce = null } = {}) {
+    const b = bounce ?? SWIFT[kind] ?? 0;
+    return spring(tau, 1 - b, 2 * Math.PI / duration);
+  }
+
+  // A persistent ground of light: level 0 = at rest (a low glow, horizon ≈ rest·H), 1 = the frame flooded. Returns the
+  // ellipse (anchored below the frame) to fill with a radial gradient — `stops` are the reference's, warm or green — and
+  // `core`, the half-radius contour where the light is bright enough to turn type white. Flood ≤ 0.4 s, drain ~1 s.
+  function lightField(level, { W = 1920, H = 1080, rest = 0.84, top = -300, r0 = 660, r1 = 1500, tilt = 0.012 } = {}) {
+    const ry = r0 + r1 * level, horizon = lerp(H * rest, top, level);
+    return { cx: W / 2, cy: horizon + 0.62 * ry, rx: ry * 2.3, ry, tilt, horizon, core: 0.5, stops: [0, 0.36, 0.6, 0.8, 1] };
+  }
+
+  // A flood that drains as concentric rings: n radii leaving a point, `stagger` apart, each crossing the frame in `dur`.
+  // Fill the flood outside ring 0, alternate two tints between the rings, and the world shows through the innermost.
+  function ripple(t, t0, { n = 3, stagger = 0.16, dur = 1.25, rMax = 1160, curve = ease.smoother } = {}) {
+    const r = []; for (let k = 0; k < n; k++) r.push(rMax * curve(seg(t, t0 + k * stagger, t0 + k * stagger + dur)));
+    return { r, done: t >= t0 + (n - 1) * stagger + dur };
+  }
+
+  // silk — the "native MeshGradient" look: domain-warped value noise, two octaves, on a tiny grid, contrast-stretched and
+  // ramped. Returns RGBA for gx × gy; putImageData it into a gx × gy canvas and draw that up to the card with blur(28 px at
+  // 520 wide). A ramp whose lightness is not monotonic (a dark fold between two brights) is what reads as cloth.
+  function silkHash(x, y, s) { let h = (x * 374761393 + y * 668265263 + s * 1442695041) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+  function silkNoise(x, y, s) {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const a = silkHash(xi, yi, s), b = silkHash(xi + 1, yi, s), c = silkHash(xi, yi + 1, s), d = silkHash(xi + 1, yi + 1, s);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  }
+  const silkFbm = (x, y, s) => 0.5 * silkNoise(x, y, s) + 0.25 * silkNoise(x * 2.02, y * 2.02, s);
+  function silkRamp(stops, k) {
+    k = clamp(k, 0, 1);
+    for (let i = 1; i < stops.length; i++) if (k <= stops[i][0]) { const [a, A] = stops[i - 1], [b, B] = stops[i], u = (k - a) / (b - a); return A.map((v, j) => v + (B[j] - v) * u); }
+    return stops[stops.length - 1][1];
+  }
+  const SILK = {
+    ember: [[0, [200, 120, 24]], [0.22, [236, 170, 34]], [0.42, [122, 96, 26]], [0.54, [160, 94, 32]], [0.74, [240, 74, 92]], [1, [252, 210, 198]]],
+    peach: [[0, [240, 150, 92]], [0.24, [252, 204, 148]], [0.44, [190, 104, 66]], [0.58, [236, 124, 108]], [0.8, [250, 186, 172]], [1, [255, 240, 228]]],
+    dusk: [[0, [118, 58, 94]], [0.24, [226, 98, 112]], [0.44, [88, 44, 68]], [0.58, [176, 74, 98]], [0.8, [246, 150, 122]], [1, [255, 224, 204]]],
+  };
+  function silk(tau, seed = 3, stops = SILK.peach, { gx = 16, gy = 20, contrast = 3.4, out = null } = {}) {
+    const d = out || new Uint8ClampedArray(gx * gy * 4);
+    for (let j = 0; j < gy; j++) for (let i = 0; i < gx; i++) {
+      const u = i / gx * 1.1, v = j / gy * 1.4;
+      const qx = silkFbm(u + 0.11 * tau, v - 0.07 * tau, seed), qy = silkFbm(u + 5.2 - 0.09 * tau, v + 1.3 + 0.05 * tau, seed);
+      const k = 0.5 + (silkFbm(u + 1.8 * qx + 0.04 * tau, v + 1.8 * qy, seed) - 0.375) * contrast;
+      const c = silkRamp(stops, k), n = (i + j * gx) * 4;
+      d[n] = c[0]; d[n + 1] = c[1]; d[n + 2] = c[2]; d[n + 3] = 255;
+    }
+    return d;
+  }
+  silk.ramps = SILK; silk.ramp = silkRamp;
+
+  // A belt that never rests until it is told to: position and a slowed clock, integrated once so the start (a .smooth
+  // swiftSpring over `rampDur`) and the stop (a smoothstep over `stop`) stay pure functions of t. at(t) → {x, tau}: x in
+  // px travelled at `speed` px/s, tau the clock to drive every card's own loop (silk, typing) so they slow with the belt.
+  function carouselLoop({ dur, start = 0, speed = 204, rampDur = 1.0, stop = null, hz = 240 } = {}) {
+    const n = Math.ceil(dur * hz) + 1, X = new Float64Array(n), TA = new Float64Array(n);
+    let x = 0, tau = 0;
+    for (let i = 0; i < n; i++) {
+      const t = i / hz, k = stop ? 1 - ease.smooth(seg(t, stop[0], stop[1])) : 1;
+      x += speed * swiftSpring(t - start, 'smooth', { duration: rampDur }) * k / hz; tau += k / hz; X[i] = x; TA[i] = tau;
+    }
+    return { at(t) { const f = clamp(t * hz, 0, n - 1), i = Math.floor(f), j = Math.min(n - 1, i + 1), u = f - i; return { x: lerp(X[i], X[j], u), tau: lerp(TA[i], TA[j], u) }; } };
+  }
+
+  const OM = {
+    version: '1.1.0-lite', lineage: 'otk-7f3e1c',
+    clamp, lerp, seg, sstep, ssstep, ease, bezier, tween, t80, spring, springVel, ring, settle, spline, rng,
+    wordRise, letterDrop, popIn, liftOut, maskRise, typeOn, tick, flyThrough,
+    morphRect, iris, zoomThrough, hop, gather, ribbon, seal, staccato,
+    impact, impactSplit, press, cursor, squash, sim,
+    camera, view, dof, whip, shake, drift, lattice, project, unproject, projectBox, screenTravel,
+    swiftSpring, lightField, ripple, silk, carouselLoop,
+  };
+  root.OM = OM;
+  if (typeof module === 'object' && module.exports) module.exports = OM;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// murmur — a launch film as one file. Every value below is a pure function of t (seconds).
+// The one element that survives every boundary is the amber block: caret → loader → sunrise window → … → wordmark.
+// ════════════════════════════════════════════════════════════════════════════════════════════
+(()=>{
+const {clamp,lerp,seg,sstep,ssstep,ease,spring,ring,spline,rng,wordRise,letterDrop,popIn,impact,press,camera,view,lattice,shake,morphRect,gather}=OM;
+const W=1920,H=1080,DUR=21.2;
+const $=id=>document.getElementById(id);
+const el=(tag,cls,parent,css,html)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(css)e.style.cssText=css;if(html!=null)e.innerHTML=html;if(parent)parent.appendChild(e);return e;};
+const mix=(a,b,k)=>[lerp(a[0],b[0],k),lerp(a[1],b[1],k),lerp(a[2],b[2],k)];
+const rgb=c=>`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+const hex=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+const AMBER=hex('#ffb04a');
+
+// ── timeline ────────────────────────────────────────────────────────────────────────────────
+const TYPE0=1.3, TYPE1=3.5, ENTER=4.05;
+const D=[4.22,4.56,4.90,5.24];                 // the block leaves slot k for slot k+1
+const MORPH0=5.62, MORPH1=6.85;
+const DRAG0=7.35, DRAG1=8.45;
+const PULL0=8.9, PULL1=11.0, GLIDE1=12.6;
+const GATHER0=13.5, GATHER1=14.4, CUT=14.5;
+const WORDS=[[14.50,'Describe'],[14.80,'Review'],[15.05,'Ship']], WM=15.45;
+const TAG=16.35, INST=17.2, INST_TYPE=17.6;
+
+// ── measuring ───────────────────────────────────────────────────────────────────────────────
+const cs=getComputedStyle(document.documentElement);
+const MONO=cs.getPropertyValue('--mono').trim(), SANS=cs.getPropertyValue('--sans').trim();
+const mc=document.createElement('canvas').getContext('2d');
+const tw=(font,s)=>{mc.font=font;return mc.measureText(s).width;};
+const metrics=(font)=>{mc.font=font;const a=mc.measureText('Hxg'),h=mc.measureText('H');return{asc:a.fontBoundingBoxAscent,desc:a.fontBoundingBoxDescent,cap:h.actualBoundingBoxAscent};};
+const CMD='murmur "a weather app that feels like morning"';
+const CMDF='500 30px '+MONO;
+const pre=[];for(let i=0;i<=CMD.length;i++)pre.push(tw(CMDF,CMD.slice(0,i)));
+
+// typing schedule: a person, not a metronome
+const charT=[];{const r=rng(7);let s=0;for(let i=0;i<CMD.length;i++){let d=.035+r()*.05;if(i===6)d+=.34;if(i===7)d+=.12;if(CMD[i]===' '&&i>7)d+=.04+r()*.05;if(i===CMD.length-1)d+=.18;s+=d;charT.push(s);}
+  const k=(TYPE1-TYPE0)/s;for(let i=0;i<charT.length;i++)charT[i]=TYPE0+charT[i]*k;}
+const nTyped=t=>{let n=0;while(n<charT.length&&charT[n]<=t)n++;return n;};
+const caretLocalX=t=>{const n=nTyped(t);if(n===0)return pre[0];const k=ease.quadOut(clamp((t-charT[n-1])/.07,0,1));return lerp(pre[n-1],pre[n],k);};
+
+// ── terminal DOM ────────────────────────────────────────────────────────────────────────────
+const TL=460,TT=476;
+const LN=[['reading the mood','soft · warm'],['weaving layout','0.4s'],['tuning springs','0.9s'],['shipped','2.1s']];
+const lnY=k=>36+56*k+16;
+const lnEls=LN.map((d,i)=>{const k=i+1;const e=el('div','ln',$('lines'),`top:${lnY(k)}px`,
+  `<svg viewBox="0 0 22 22"><path d="M4 11.5l5 5 9-10.5" fill="none" stroke="#ffb04a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="tx">${d[0]}</span><span class="mt">${d[1]}</span>`);
+  e._svg=e.querySelector('svg');e._tx=e.querySelector('.tx');e._mt=e.querySelector('.mt');return e;});
+const slot=k=>({x:TL+38,y:TT+lnY(k)+19,w:18,h:18,r:5});
+const caretRect=t=>({x:TL+84+caretLocalX(t),y:TT+46,w:17,h:36,r:3});
+
+// ── app DOM ─────────────────────────────────────────────────────────────────────────────────
+const HRS=[['06',8],['07',10],['08',13],['09',15],['10',18],['11',20]];
+const hrEls=HRS.map((d,i)=>{const e=el('div','hr',$('hours'),`top:${i*62+14}px`,`<div class="hl"></div><div class="tm">${d[0]}:00</div><div class="br" style="width:${30+d[1]*5}px"></div><div class="tp">${d[1]}°</div>`);e._hl=e.querySelector('.hl');return e;});
+const scrub=$('scrub'),sFil=scrub.querySelector('.fil'),sHdl=scrub.querySelector('.hdl'),sTmr=scrub.querySelector('.tmr');
+const SKY={t0:hex('#4a3f8c'),t1:hex('#6cc0ff'),m0:hex('#c4638f'),m1:hex('#bfe4ff'),b0:hex('#ff8a6b'),b1:hex('#fff0cf')};
+const S_END=.82;
+const sOf=t=>.04+(S_END-.04)*ease.cubicInOut(seg(t,DRAG0,DRAG1));
+const AR={x:470,y:230,w:980,h:620,r:34};
+const handleX=s=>56+868*(s/ S_END*.94+.03);   // local x of the handle
+
+// ── hand ────────────────────────────────────────────────────────────────────────────────────
+const HAND_IN=[{t:6.9,x:1560,y:960},{t:7.15,x:1400,y:880},{t:7.35,x:0,y:0}];
+function handPos(t){
+  const s=sOf(t), hx=AR.x+handleX(s), hy=AR.y+566;
+  if(t<DRAG0){const k=ease.cubicOut(seg(t,6.9,DRAG0));const hx0=AR.x+handleX(.04);return[lerp(1560,hx0,k),lerp(980,hy,k)];}
+  if(t<DRAG1+.1)return[hx,hy];
+  const k=ease.cubicInOut(seg(t,DRAG1+.1,DRAG1+.5));const hxE=AR.x+handleX(sOf(DRAG1));
+  return[lerp(hxE,1540,k),lerp(hy,1020,k)];
+}
+
+// ── the wall of other apps ─────────────────────────────────────────────────────────────────
+const PITCH_X=1100,PITCH_Y=720,CX=960,CY=540;
+const PROMPTS=["a budget that shames me gently","a playlist for rainy trains","notes that tidy themselves","a habit tracker with no guilt","a tide table for surfers","a recipe from my fridge","a flight board for my mum","a pomodoro that plays chess","a diary for my plants","a split-the-bill calculator","a tiny crm for my bakery","a bedtime story machine","a map of every cafe I love","a gym log, but warm","a countdown to the trip","a mood journal in colour","a reading list that nags","a tip jar for buskers","a rota for the flat","a stargazing planner","a language flashcard deck","a tool library for the street","a tea timer","a calendar with no meetings","a ledger for the allotment","a sleep log in blues","a birthday radar","a lost-sock tracker","a vinyl shelf","a carbon diary","a morning-run coach","a quiet inbox","a wine cellar","a puzzle of the day"];
+const NAMES=["Ledger","Rainline","Tidy","Gentle","Tides","Fridge","Gate","Rook","Fern","Split","Crumb","Dream","Cafés","Forge","Trip","Hue","Nag","Tipjar","Rota","Stars","Cards","Lend","Steep","Free","Plot","Doze","Radar","Sock","Groove","Carbon","Stride","Hush","Cellar","Daily"];
+const PAL=[
+ {bg:'#ffe3cf',ink:'#3a2418',ac:'#ff7a4d',so:'#ffc9a8'},{bg:'#dfe9d6',ink:'#1f2a1c',ac:'#4f9a55',so:'#bdd3b0'},
+ {bg:'#d8ebfb',ink:'#14263a',ac:'#3d8fe0',so:'#a9cff0'},{bg:'#e6defa',ink:'#251b3e',ac:'#8a6bf0',so:'#c8b9f5'},
+ {bg:'#fff0b8',ink:'#3a2f0b',ac:'#f0a800',so:'#f6dc7c'},{bg:'#fcd9df',ink:'#3c1620',ac:'#e5476b',so:'#f5adbb'},
+ {bg:'#232a31',ink:'#e9eef3',ac:'#7fd1c3',so:'#3a444e'},{bg:'#efe6d8',ink:'#2d261b',ac:'#b9814a',so:'#d9c7ad'},
+ {bg:'#1f1b2b',ink:'#f1ecff',ac:'#ff9e5e',so:'#38324d'}];
+const KINDS=['music','budget','notes','habit','chart','map','timer','board'];
+const cells=[];
+{const r=rng(11);let idx=0;
+ for(let cy=-2;cy<=2;cy++)for(let cx=-3;cx<=3;cx++){if(!cx&&!cy)continue;cells.push({cx,cy,x:CX+cx*PITCH_X,y:CY+cy*PITCH_Y});}
+ cells.sort((a,b)=>Math.hypot(a.x-CX,a.y-CY)-Math.hypot(b.x-CX,b.y-CY));
+ const pal=[],kd=[];for(let i=0;i<cells.length;i++){pal.push(PAL[(i*4+Math.floor(r()*3))%PAL.length]);kd.push(KINDS[(i*3+Math.floor(r()*5))%KINDS.length]);}
+ cells.forEach((c,i)=>{c.i=i;c.dist=Math.hypot(c.x-CX,c.y-CY);c.p=pal[i];c.kind=kd[i];c.prompt=PROMPTS[(i*7)%PROMPTS.length];
+  c.popT=PULL0+.42+1.35*Math.pow(c.dist/3300,.85)+r()*.06;});
+ // make sure prompts are unique
+ const used=new Set();cells.forEach(c=>{let k=PROMPTS.indexOf(c.prompt);while(used.has(k))k=(k+1)%PROMPTS.length;used.add(k);c.prompt=PROMPTS[k];c.name=NAMES[k];});
+}
+const U=(t,per)=>{const f=(t/per)%1;return f<0?f+1:f;};
+function buildTile(c){
+  const p=c.p,cell=el('div','cell',$('wall'),`left:${c.x-490}px;top:${c.y-310}px;display:none`);
+  const tile=el('div','tile',cell,`background:${p.bg};color:${p.ink}`);
+  el('div','nm',tile,'',c.name);
+  el('div','lab',cell,'',`› ${c.prompt}`);
+  const A=(css,html,cls)=>el('div',cls||'',tile,css,html);
+  const up={};
+  if(c.kind==='music'){
+    const disc=A(`left:60px;top:150px;width:320px;height:320px;border-radius:50%;background:conic-gradient(${p.ac},${p.so},${p.ac},${p.so},${p.ac});box-shadow:0 20px 50px -20px ${p.ac}`);
+    A(`left:180px;top:270px;width:80px;height:80px;border-radius:50%;background:${p.bg}`);
+    A(`left:440px;top:170px;font-size:46px;font-weight:650;letter-spacing:-.02em`,c.name+' no.'+(c.i+3));
+    A(`left:440px;top:232px;font-size:24px;opacity:.6`,'for the 17:42 to Porto');
+    A(`left:440px;top:310px;width:470px;height:8px;border-radius:8px;background:${p.so}`);
+    const fil=A(`left:440px;top:310px;width:0;height:8px;border-radius:8px;background:${p.ac}`);
+    const rows=[0,1,2].map(i=>A(`left:440px;top:${390+i*54}px;width:470px;height:34px`,`<div style="position:absolute;left:0;top:4px;width:26px;height:26px;border-radius:8px;background:${p.so}"></div><div style="position:absolute;left:44px;top:12px;height:10px;width:${240-i*50}px;border-radius:10px;background:${p.so}"></div>`));
+    up.f=tl=>{disc.style.transform=`rotate(${tl*52}deg)`;fil.style.width=(470*U(tl,12))+'px';rows.forEach((r,i)=>{r.style.opacity=(Math.floor(tl/3)%3===i)?1:.5;});};
+  }else if(c.kind==='budget'){
+    const ring=A(`left:60px;top:150px;width:320px;height:320px;border-radius:50%;background:conic-gradient(${p.ac} 0%,${p.so} 0)`);
+    A(`left:100px;top:190px;width:240px;height:240px;border-radius:50%;background:${p.bg}`);
+    const pct=A(`left:100px;top:268px;width:240px;text-align:center;font-size:76px;font-weight:600;letter-spacing:-.03em`,'0%');
+    const bars=[0,1,2,3].map(i=>{A(`left:440px;top:${160+i*88}px;font-size:24px;font-weight:550;opacity:.75`,['rent','food','trains','joy'][i]);A(`left:440px;top:${198+i*88}px;width:460px;height:18px;border-radius:18px;background:${p.so}`);return A(`left:440px;top:${198+i*88}px;width:0;height:18px;border-radius:18px;background:${p.ac}`);});
+    up.f=tl=>{const k=ease.cubicOut(clamp(tl/1.6,0,1)),v=.68*k+.02*Math.sin(tl*1.3);ring.style.background=`conic-gradient(${p.ac} ${v*100}%,${p.so} 0)`;pct.textContent=Math.round(v*100)+'%';bars.forEach((b,i)=>{b.style.width=(460*clamp([.9,.55,.35,.72][i]*k+.03*Math.sin(tl*1.1+i),0,1))+'px';});};
+  }else if(c.kind==='notes'){
+    const rows=[];for(let i=0;i<6;i++){const y=140+i*70;const bx=A(`left:52px;top:${y}px;width:30px;height:30px;border-radius:9px;border:3px solid ${p.ac};box-sizing:border-box`,`<svg viewBox="0 0 22 22" style="position:absolute;left:1px;top:1px;width:22px;height:22px;opacity:0"><path d="M4 11.5l5 5 9-10.5" fill="none" stroke="${p.bg}" stroke-width="3.4" stroke-linecap="round"/></svg>`);
+      const ln=A(`left:104px;top:${y+9}px;width:${[620,520,700,440,580,360][i]}px;height:12px;border-radius:12px;background:${p.so}`);rows.push([bx,ln]);}
+    up.f=tl=>{const n=Math.floor(tl*1.7)%8;rows.forEach(([b,l],i)=>{const on=i<n;b.style.background=on?p.ac:'transparent';b.firstChild.style.opacity=on?1:0;l.style.opacity=on?.45:1;});};
+  }else if(c.kind==='habit'){
+    const dots=[];for(let r=0;r<4;r++)for(let q=0;q<12;q++)dots.push(A(`left:${52+q*72}px;top:${160+r*92}px;width:52px;height:52px;border-radius:50%;background:${p.so}`));
+    A(`left:52px;top:538px;font-size:26px;font-weight:550;opacity:.7`,'no streaks. just days.');
+    up.f=tl=>{const n=Math.floor(tl*9)%60;dots.forEach((d,i)=>{const on=i<n&&n<=48;d.style.background=on?p.ac:p.so;d.style.transform=on&&i===n-1?'scale(1.18)':'scale(1)';});};
+  }else if(c.kind==='chart'){
+    const pts=[];for(let i=0;i<=24;i++){pts.push([i*36+52,420-(Math.sin(i*.43+c.i)*70+Math.sin(i*.17)*60+120)]);}
+    const d='M'+pts.map(q=>q.join(',')).join(' L'), area=d+` L${pts[24][0]},520 L52,520 Z`;
+    const svg=A(`left:0;top:0;width:980px;height:620px`,`<svg width="980" height="620"><path d="${area}" fill="${p.so}" opacity=".55"/><path class="ln" d="${d}" fill="none" stroke="${p.ac}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>`);
+    const path=svg.querySelector('.ln');let L=1500;try{L=path.getTotalLength();}catch(e){}
+    path.style.strokeDasharray=L;A(`left:52px;top:130px;font-size:64px;font-weight:600;letter-spacing:-.03em`,(c.i*3%9+2)+'.'+(c.i%7)+'m');A(`left:52px;top:208px;font-size:22px;opacity:.6`,'next high · 18:20');
+    up.f=tl=>{path.style.strokeDashoffset=L*(1-ease.cubicInOut(clamp((tl%6)/2.4,0,1)));};
+  }else if(c.kind==='map'){
+    for(let i=0;i<7;i++)A(`left:${(i*277+c.i*53)%800}px;top:${(i*131+c.i*29)%420+110}px;width:${180+(i*37)%160}px;height:${110+(i*23)%90}px;border-radius:${40+i*8}px;background:${p.so};opacity:.7;transform:rotate(${i*23}deg)`);
+    const svg=A(`left:0;top:0;width:980px;height:620px`,`<svg width="980" height="620"><path class="rt" d="M120 480 C 260 250, 380 520, 520 330 S 760 240, 840 190" fill="none" stroke="${p.ac}" stroke-width="8" stroke-linecap="round" stroke-dasharray="6 18"/></svg>`);
+    const pin=A(`left:0;top:0;width:44px;height:44px;margin:-60px 0 0 -22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${p.ac}`);
+    const path=svg.querySelector('.rt');let L=1100;try{L=path.getTotalLength();}catch(e){}
+    up.f=tl=>{const k=U(tl,5);const q=path.getPointAtLength(L*ease.cubicInOut(k));pin.style.transform=`translate(${q.x}px,${q.y-Math.abs(Math.sin(tl*7))*10}px) rotate(-45deg)`;path.style.strokeDashoffset=-tl*30;};
+  }else if(c.kind==='timer'){
+    const svg=A(`left:300px;top:130px;width:380px;height:380px`,`<svg width="380" height="380" viewBox="0 0 380 380"><circle cx="190" cy="190" r="165" fill="none" stroke="${p.so}" stroke-width="16"/><circle class="a" cx="190" cy="190" r="165" fill="none" stroke="${p.ac}" stroke-width="16" stroke-linecap="round" transform="rotate(-90 190 190)" stroke-dasharray="1037" stroke-dashoffset="0"/></svg>`);
+    const arc=svg.querySelector('.a');const dig=A(`left:300px;top:260px;width:380px;text-align:center;font:600 78px/1 var(--mono);letter-spacing:-.04em`,'24:59');
+    up.f=tl=>{arc.setAttribute('stroke-dashoffset',1037*U(tl,16));const s=1499-Math.floor(tl*3)%1500;dig.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');};
+  }else{
+    const rows=[];for(let i=0;i<5;i++){const y=150+i*86;A(`left:48px;top:${y}px;width:884px;height:70px;border-radius:20px;background:${p.so};opacity:.55`);
+      A(`left:80px;top:${y+16}px;font:600 34px/1 var(--mono)`,['LX','OP','BA','AM','FR'][(i+c.i)%5]+(210+i*37));
+      A(`left:300px;top:${y+30}px;width:${260+i*18}px;height:10px;border-radius:10px;background:${p.ac};opacity:.5`);
+      rows.push(A(`left:720px;top:${y+14}px;padding:0 20px;height:42px;border-radius:42px;font:600 21px/42px var(--mono);background:${p.ac};color:${p.bg}`,'on time'));}
+    up.f=tl=>{rows.forEach((r,i)=>{const s=Math.floor(tl*.9+i*1.7)%3;r.textContent=['on time','boarding','gate 14'][s];r.style.opacity=s===1?1:.75;});};
+  }
+  c.cell=cell;c.lab=cell.querySelector('.lab');c.up=up.f||(()=>{});c.tile=tile;
+}
+cells.forEach(buildTile);
+
+// ── words, wordmark, install ───────────────────────────────────────────────────────────────
+const wordEls=WORDS.map(([t,s])=>{const e=el('div','w',$('wordsL'),'display:none;font-weight:700;color:var(--cream)',s);return e;});
+const WF=150, WFONT=`700 ${WF}px ${SANS}`, wm_m=metrics(WFONT);
+const MARK='murmur', MF=230, MFONT=`700 ${MF}px ${SANS}`, mm_m=metrics(MFONT);
+const letEls=[...MARK].map(ch=>el('div','w',$('wordsL'),`display:none;font:700 ${MF}px/1 ${SANS};letter-spacing:0;color:var(--cream);transform-origin:50% 88%`,ch));
+// layout of the staccato words: word + block, centred
+const BW1=64, BH1=Math.round(wm_m.cap*1.14), GAP1=16;
+const wordLay=WORDS.map(([t,s])=>{const w=tw(WFONT,s),tot=w+GAP1+BW1,x0=(W-tot)/2,base=560;return{w,x0,top:base-(wm_m.desc+(WF-(wm_m.asc+wm_m.desc))/2+wm_m.asc)+0,base,bx:x0+w+GAP1};});
+wordLay.forEach(l=>{l.top=l.base-((WF-(wm_m.asc+wm_m.desc))/2+wm_m.asc);});
+wordLay.forEach((l,i)=>{wordEls[i].style.left=l.x0+'px';wordEls[i].style.top=l.top+'px';wordEls[i].style.fontSize=WF+'px';});
+// wordmark layout
+const BW2=84, BH2=Math.round(mm_m.cap*1.14), GAP2=20;
+const mPre=[...MARK].map((_,i)=>tw(MFONT,MARK.slice(0,i))), mW=tw(MFONT,MARK), mTot=mW+GAP2+BW2, mX0=(W-mTot)/2, mBase=500;
+const mTop=mBase-((MF-(mm_m.asc+mm_m.desc))/2+mm_m.asc);
+letEls.forEach((e,i)=>{e.style.left=(mX0+mPre[i])+'px';e.style.top=mTop+'px';});
+const wmBlock={x:mX0+mW+GAP2,y:mBase-BH2,w:BW2,h:BH2,r:8};
+const tag=$('tag'),tag2=$('tag2');
+tag.style.left=(W/2-tw('500 48px '+SANS,'Describe it. Get the app.')/2)+'px';tag.style.top='618px';
+const T2='一 句 话 ， 一 个 应 用';tag2.style.left=(W/2-(tw('400 30px '+SANS,T2)+T2.length*3.6)/2+1.8)+'px';tag2.style.top='702px';
+const INSTX='npm i -g murmur', instF='500 28px '+MONO, inst=$('inst'), instT=$('instT'), instC=$('instC');
+const instCharT=[...INSTX].map((_,i)=>INST_TYPE+i*.07+((i*37)%5)*.012);
+
+// ── camera ─────────────────────────────────────────────────────────────────────────────────
+const KEYS=[
+ {t:0,x:960,y:540,zoom:1.0},{t:1.3,x:960,y:540,zoom:1.0},
+ {t:3.6,x:960,y:540,zoom:1.28,curve:ease.sineInOut},{t:4.05,x:960,y:540,zoom:1.28},
+ {t:5.0,x:960,y:640,zoom:1.18,curve:ease.cubicInOut},{t:5.62,x:960,y:618,zoom:1.14,curve:ease.sineInOut},
+ {t:6.85,x:960,y:540,zoom:1.0,curve:ease.cubicOut},{t:7.35,x:960,y:540,zoom:1.0,curve:ease.sineInOut},
+ {t:8.5,x:995,y:566,zoom:1.07,curve:ease.sineInOut},{t:PULL0,x:995,y:566,zoom:1.07},
+ {t:PULL1,x:960,y:540,zoom:.34,curve:ease.cubicInOut},
+ {t:GLIDE1,x:1500,y:900,zoom:.43,curve:ease.sineInOut},{t:GATHER0,x:1500,y:900,zoom:.43},
+ {t:14.40,x:960,y:540,zoom:.62,curve:ease.cubicInOut},{t:CUT-.012,x:960,y:540,zoom:.62},{t:CUT,x:960,y:540,zoom:1.0,curve:t=>t},
+];
+function camAt(t){
+  const c=camera(t,KEYS);
+  // follow the caret while typing
+  const w=sstep(1.3,1.9,t)*(1-sstep(3.9,4.6,t));
+  if(w>0){let cx=0;for(let j=0;j<6;j++)cx+=TL+84+caretLocalX(t-.04*j-.06);cx/=6;c.x+=w*.55*(cx-960);}
+  const sh=[shake(t,ENTER,{amp:7,seed:2}),shake(t,5.95,{amp:10,seed:5}),shake(t,14.4,{amp:16,seed:9})];
+  sh.forEach(s=>{c.x+=s.x;c.y+=s.y;c.rot+=s.rot;});
+  return c;
+}
+
+// ── background lattice ─────────────────────────────────────────────────────────────────────
+const bg=$('bg'),bgc=bg.getContext('2d');
+function drawBg(cam){
+  bgc.setTransform(1,0,0,1,0,0);bgc.clearRect(0,0,W,H);
+  const g=bgc.createRadialGradient(960,620,0,960,620,1100);g.addColorStop(0,'#17120d');g.addColorStop(1,'#080605');bgc.fillStyle=g;bgc.fillRect(0,0,W,H);
+  const L=lattice(cam,{depth:1.2,spacing:64,px:1.6});
+  bgc.setTransform(...L.matrix);bgc.fillStyle='rgba(255,196,130,.13)';
+  for(let x=L.x0;x<=L.x1;x+=L.spacing)for(let y=L.y0;y<=L.y1;y+=L.spacing)bgc.fillRect(x-L.r,y-L.r,L.r*2,L.r*2);
+}
+
+// ── the block ──────────────────────────────────────────────────────────────────────────────
+const blk=$('blk');
+function setBlock(b,{op=1,sx=1,sy=1,rot=0,glow=44,ga=.5}={}){
+  if(!b){blk.style.display='none';return;}
+  blk.style.display='block';blk.style.opacity=op;
+  blk.style.left=b.x+'px';blk.style.top=b.y+'px';blk.style.width=b.w+'px';blk.style.height=b.h+'px';blk.style.borderRadius=b.r+'px';
+  blk.style.transform=`rotate(${rot}deg) scale(${sx},${sy})`;
+  blk.style.boxShadow=`0 0 ${glow}px rgba(255,176,74,${ga}),0 0 ${glow*.3}px rgba(255,200,120,${ga*.7})`;
+}
+const lerpRect=(A,B,k)=>({x:lerp(A.x,B.x,k),y:lerp(A.y,B.y,k),w:lerp(A.w,B.w,k),h:lerp(A.h,B.h,k),r:lerp(A.r,B.r,k)});
+function blockAt(t){
+  if(t<ENTER){
+    const typing=t>=TYPE0&&t<=TYPE1+.05;
+    let op=1;
+    if(t<TYPE0){op=t<.35?1:.1+.9*Math.pow(.5+.5*Math.cos(2*Math.PI*(t-.35)/1.1),1.4);}
+    const pr=1+.0*Math.sin(t);
+    const press=ENTER-.06;
+    return{b:caretRect(t),o:{op,glow:30+14*(typing?1:0),ga:.42}};
+  }
+  if(t<MORPH0){
+    // hops between slots
+    let j=-1;for(let q=0;q<D.length;q++)if(t>=D[q])j=q;
+    const P=[caretRect(ENTER),slot(1),slot(2),slot(3),slot(4)];
+    let b,sx=1,sy=1,rot=0;
+    if(j<0){b=P[0];const im=impact(t,ENTER,{decay:8,omega:26,sqx:.35,sqy:.3});sx=im.sx;sy=im.sy;}
+    else{
+      const dt=t-D[j],k=spring(dt,.72,26);b=lerpRect(P[j],P[j+1],k);
+      const arc=Math.sin(Math.PI*clamp(dt/.3,0,1))*44;b={...b,y:b.y-arc};
+      const stretch=Math.sin(Math.PI*clamp(dt/.22,0,1))*.35;sx=1+stretch*.4;sy=1-stretch*.25;
+      // loader spin once seated
+      const seat=dt-.16;if(seat>0)rot=90*(Math.floor(seat/.34)+spring((seat%.34),.8,24));
+    }
+    return{b,o:{sx,sy,rot,glow:34,ga:.55}};
+  }
+  if(t>=GATHER1&&t<CUT){const b={x:CX-BW1/2,y:CY-BH1/2,w:BW1,h:BH1,r:8};return{b,o:{glow:80,ga:.7}};}
+  if(t>=CUT){
+    // staccato: block follows the end of each word, then lands in the wordmark
+    let idx=-1;for(let i=0;i<WORDS.length;i++)if(t>=WORDS[i][0])idx=i;
+    const bl=l=>({x:l.bx,y:l.base-BH1,w:BW1,h:BH1,r:8});
+    if(t<WM){const l=wordLay[Math.max(0,idx)];const im=impact(t,WORDS[Math.max(0,idx)][0],{decay:9,omega:30,sqx:.18,sqy:.22});return{b:bl(l),o:{sx:im.sx,sy:im.sy,glow:60,ga:.6}};}
+    const A=bl(wordLay[WORDS.length-1]),k=spring(t-WM,.74,16);
+    const b=lerpRect(A,wmBlock,k);const im=impact(t,WM+.28,{decay:7,omega:24,sqx:.1,sqy:.12});
+    // idle breath after landing
+    return{b,o:{sx:im.sx,sy:im.sy,glow:64+10*Math.sin(t*2),ga:.6}};
+  }
+  return{b:null,o:{}};
+}
+
+// ── frame ──────────────────────────────────────────────────────────────────────────────────
+const worldEl=$('world'),app=$('app'),term=$('term'),cellA=$('cellA'),applab=$('applab'),curEl=$('cur');
+const show=(e,on)=>{const d=on?'block':'none';if(e._d!==d){e.style.display=d;e._d=d;}};
+function seek(t){
+  const cam=camAt(t),M=view(cam);
+  worldEl.style.transform=`matrix(${M.join(',')})`;
+  drawBg(cam);
+
+  // terminal
+  const termOn=t<MORPH1;show(term,termOn);
+  if(termOn){
+    const n=nTyped(t);
+    const sp=spring(t-ENTER-.02,.78,17);
+    term.style.height=lerp(128,368,sp)+'px';
+    term.style.opacity=1-sstep(MORPH0+.1,MORPH0+.5,t);
+    const a=$('cmd').children[0],b=$('cmd').children[1];
+    const s=CMD.slice(0,n);a.textContent=s.slice(0,6);b.textContent=s.slice(6);
+    lnEls.forEach((e,i)=>{
+      const k=i+1,tIn=D[k-1]+.04,w=wordRise(t,tIn,{dist:16,omega:24,zeta:.8});
+      e._tx.style.opacity=w.op;e._tx.style.transform=`translateY(${w.y}px)`;e._mt.style.opacity=w.op*.9;
+      const tc=k<4?D[k]:MORPH0,c=spring(t-tc,.5,28);
+      e._svg.style.opacity=t>=tc?1:0;e._svg.style.transform=`scale(${.4+.6*clamp(c,0,1.3)})`;
+    });
+    term.style.transform=`scale(${1-.04*sstep(MORPH0,MORPH0+.5,t)})`;
+  }
+
+  // block
+  const bs=blockAt(t);
+  if(t>=MORPH0&&t<GATHER1)setBlock(null);else setBlock(bs.b,bs.o);
+
+  // app / center cell
+  const appOn=t>=MORPH0&&t<GATHER1;show(cellA,appOn);
+  if(appOn){
+    const P4=slot(4);
+    const R=t<GATHER0+.05?morphRect(t,MORPH0,MORPH1,{x:P4.x,y:P4.y,w:P4.w,h:P4.h,r:5},AR,{curve:ease.expoOut})
+      :morphRect(t,GATHER0+.05,GATHER1,AR,{x:CX-BW1/2,y:CY-BH1/2,w:BW1,h:BH1,r:8},{curve:ease.cubicInOut});
+    // cell is positioned at AR; app is inset to the morph rect within it
+    app.style.left=(R.x-AR.x)+'px';app.style.top=(R.y-AR.y)+'px';app.style.width=R.w+'px';app.style.height=R.h+'px';app.style.borderRadius=R.r+'px';
+    const s=t<DRAG0?.04:sOf(t),sc=clamp(s/S_END,0,1);
+    const f=t<GATHER0?sstep(5.85,6.55,t):1-sstep(GATHER0,GATHER0+.3,t);
+    const top=mix(AMBER,mix(SKY.t0,SKY.t1,sc),f),mid=mix(AMBER,mix(SKY.m0,SKY.m1,sc),f),bot=mix(AMBER,mix(SKY.b0,SKY.b1,sc),f);
+    app.style.background=`linear-gradient(180deg,${rgb(top)} 0%,${rgb(mid)} 52%,${rgb(bot)} 100%)`;
+    app.style.boxShadow=`0 0 ${70*(1-f)+10}px rgba(255,176,74,${.55*(1-f)+.0}),0 50px 110px -34px rgba(0,0,0,.75)`;
+    const ink=mix([255,255,255],[20,35,63],ssstep(.45,.85,sc));app.style.color=rgb(ink);
+    const content=sstep(GATHER0,GATHER0+.22,t);   // fades out ahead of the fold
+    const vis=1-content;
+    // inner layout is authored at full size; scale it with the morph so it never reflows
+    const inner=[sun,hello1,hello2,place,temp,chips,hours,scrubEl,ground];
+    // sun
+    const sr=spring(t-6.0,.62,11),sx=330+sc*300+(1-sr)*0,sy=lerp(560,470-Math.sin(Math.PI*Math.min(1,sc*1.05))*320,sr)+ (sr<1?0:0);
+    const sunY=lerp(640,0,sr)+(470-Math.sin(Math.PI*Math.min(1,sc*1.02))*330)*sr+(1-sr)*0;
+    sun.style.transform=`translate(${sx}px,${lerp(640,470-Math.sin(Math.PI*Math.min(1,sc*1.02))*330,sr)}px) scale(${1+.25*sc})`;
+    sun.style.opacity=vis*sstep(5.9,6.2,t);
+    const w1=wordRise(t,6.10,{dist:22}),w2=wordRise(t,6.20,{dist:30,omega:20}),w3=wordRise(t,6.35,{dist:20}),w4=wordRise(t,6.28,{dist:40,omega:17}),w5=wordRise(t,6.55,{dist:20});
+    hello1.style.opacity=w1.op*vis*.9;hello1.style.transform=`translateY(${w1.y}px)`;
+    hello2.style.opacity=w2.op*vis;hello2.style.transform=`translateY(${w2.y}px)`;
+    place.style.opacity=w3.op*vis;place.style.transform=`translateY(${w3.y}px)`;
+    const tmp=Math.round(lerp(8,18,sc));temp.textContent=tmp+'°';
+    temp.style.opacity=w4.op*vis;temp.style.transform=`translateY(${w4.y}px)`;
+    chips.style.opacity=w5.op*vis;chips.style.transform=`translateY(${w5.y}px)`;
+    const hp=popIn(t,6.45,{rise:40,s0:.96,ds:.04});hours.style.opacity=hp.op*vis;hours.style.transform=`translateY(${hp.dy}px)`;
+    hours.style.background=`rgba(255,255,255,${.2+.3*ssstep(.45,.85,sc)})`;
+    const hour=5.7+4.5*sc;
+    hrEls.forEach((e,i)=>{const wr=wordRise(t,6.5+i*.06,{dist:14,omega:22});e.style.opacity=wr.op;e.style.transform=`translateY(${wr.y}px)`;
+      const near=clamp(1-Math.abs(hour-(6+i)-.2)/1.1,0,1);e._hl.style.opacity=near;});
+    const sp2=popIn(t,6.9,{rise:30,s0:.97,ds:.03});scrubEl.style.opacity=sp2.op*vis;scrubEl.style.transform=`translateY(${sp2.dy}px)`;
+    const hx=handleX(s)-56;sHdl.style.left=hx+'px';sFil.style.width=hx+'px';sTmr.style.left=hx+'px';
+    const hh=Math.floor(hour),mm=Math.floor((hour-hh)*60);sTmr.textContent=String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+    const pr=press(t,DRAG0,{depth:.2}),pr2=press(t,DRAG1+.02,{depth:-.0});
+    sHdl.style.transform=`scale(${t<DRAG1?(1+(t>=DRAG0?.18:0)*ease.cubicOut(clamp((t-DRAG0)/.1,0,1)))*(pr.s>1?1:1):1})`;
+    ground.style.opacity=vis;
+  }
+  // label under the center cell
+  {const o=sstep(PULL0+.5,PULL0+1.0,t)*(1-sstep(GATHER0,GATHER0+.2,t));applab.style.opacity=o*.8;}
+
+  // hand
+  {const on=t>=6.9&&t<DRAG1+.6;show(curEl,on);if(on){const p=handPos(t);const pr=press(t,DRAG0,{depth:.2});
+    const grow=1-sstep(DRAG1+.1,DRAG1+.55,t)*0;curEl.style.transform=`translate(${p[0]-6}px,${p[1]-4}px) scale(${(t>=DRAG0&&t<DRAG1+.1?.88:1)})`;
+    curEl.style.opacity=sstep(6.9,7.1,t)*(1-sstep(DRAG1+.35,DRAG1+.6,t));}}
+
+  // wall
+  const wallOn=t>=PULL0+.3&&t<GATHER1+.05;show($('wall'),wallOn);
+  if(wallOn){
+    const sorted=cells;const n=sorted.length;
+    sorted.forEach((c,i)=>{
+      const tl=t-c.popT, on=tl>-.02;
+      show(c.cell,on);if(!on)return;
+      const p=popIn(t,c.popT,{rise:70,s0:.82,ds:.18,omega:15,zeta:.72});
+      let x=0,y=0,rot=0,sc=1,op=p.op;
+      if(t>=GATHER0){
+        const g=gather(t,GATHER0,GATHER1-.35,n-1-i,n,{x:c.x,y:c.y},{x:CX,y:CY},{stagger:.011,arc:90,spin:.02});
+        x=g.x-c.x;y=g.y-c.y;rot=g.rot;sc=lerp(1,.06,ease.cubicIn?ease.cubicIn(g.k):g.k*g.k*g.k);
+        op*=1-sstep(.78,1,g.k);
+        c.lab.style.opacity=0;
+      }else c.lab.style.opacity=sstep(c.popT+.35,c.popT+.8,t)*.75;
+      c.cell.style.opacity=op;
+      c.cell.style.transform=`translate(${x}px,${y+p.dy}px) rotate(${rot}rad) scale(${sc*p.s})`;
+      if(t<GATHER0)c.up(Math.max(0,tl));
+    });
+  }
+
+  // words (hard cuts)
+  {let idx=-1;for(let i=0;i<WORDS.length;i++)if(t>=WORDS[i][0])idx=i;
+   const inWords=t>=CUT&&t<WM;
+   wordEls.forEach((e,i)=>show(e,inWords&&i===idx));
+   const lm=t>=WM;
+   letEls.forEach((e,i)=>{show(e,lm);if(!lm)return;const d=letterDrop(t,WM+.05,i,{stagger:.06,dist:70,omega:24,zeta:.52});
+     e.style.opacity=d.op;e.style.transform=`translateY(${d.y}px) scale(${d.sx},${d.sy})`;});}
+  // tagline
+  {const a=wordRise(t,TAG,{dist:26,omega:17,zeta:.8}),b=wordRise(t,TAG+.22,{dist:22,omega:17,zeta:.8});
+   tag.style.opacity=a.op;tag.style.transform=`translateY(${a.y}px)`;tag2.style.opacity=b.op*.9;tag2.style.transform=`translateY(${b.y}px)`;}
+  // install input
+  {const p=popIn(t,INST,{rise:50,s0:.92,ds:.08,omega:15,zeta:.75});show(inst,t>=INST-.05);inst.style.opacity=p.op;inst.style.transform=`translateY(${p.dy}px) scale(${p.s})`;
+   let n=0;while(n<instCharT.length&&instCharT[n]<=t)n++;instT.textContent=INSTX.slice(0,n);
+   const cx=68+tw(instF,INSTX.slice(0,n));instC.style.left=cx+'px';
+   const blinkOn=t<INST_TYPE||n>=INSTX.length;const typing=n>0&&n<INSTX.length;
+   instC.style.opacity=typing?1:(blinkOn?(.15+.85*Math.pow(.5+.5*Math.cos(2*Math.PI*(t-INST_TYPE)/1.1),1.4)):1);}
+
+  // stage fade (loop seam only)
+  fade.style.opacity=PIN?0:clamp(1-sstep(0,.5,t)*(1),0,1)*0+(1-sstep(0,.45,t))+sstep(DUR-.5,DUR,t);
+  bar_i.style.width=(100*clamp(t/DUR,0,1))+'%';
+}
+const sun=$('sun'),hello1=$('hello1'),hello2=$('hello2'),place=$('place'),temp=$('temp'),chips=$('chips'),hours=$('hours'),scrubEl=$('scrub'),ground=$('ground'),fade=$('fade');
+const bar_i=document.querySelector('#bar i');
+
+// ── fit + playback ─────────────────────────────────────────────────────────────────────────
+const stage=$('stage');
+function fit(){const s=Math.min(innerWidth/W,innerHeight/H);stage.style.transform=`translate(${(innerWidth-W*s)/2}px,${(innerHeight-H*s)/2}px) scale(${s})`;}
+addEventListener('resize',fit);fit();
+const q=new URLSearchParams(location.search);
+const PIN=q.has('t');
+let t0,paused=false,cur=0;
+function loop(now){
+  if(!paused){cur=Math.max(0,(now-t0)/1000);if(cur>=DUR+.5){t0=now;cur=0;sync();}}
+  seek(Math.min(cur,DUR));
+  requestAnimationFrame(loop);
+}
+function start(){
+  if(PIN){seek(parseFloat(q.get('t'))||0);window.__ready=true;return;}
+  t0=performance.now();requestAnimationFrame(loop);window.__ready=true;
+  buildScore().then(b=>{abuf=b;window.__audioReady=true;sync();}).catch(e=>console.warn('score failed',e));
+}
+
+// ═══ sound: a score synthesised offline from the film's own timeline, then played in step with it ═══
+// Hits are placed on the same constants that drive the picture (ENTER, D, MORPH0, CUT, WM…); the groove sits on an
+// eighth-note grid of .34 s (88 BPM), which is the spacing of the loader's hops, so the drums feel like the cause.
+const SR=44100, ALEN=DUR+1.6;
+let actx=null,abuf=null,asrc=null,again=null,soundOn=false,muted=false;
+async function buildScore(){
+  const oc=new OfflineAudioContext(2,Math.ceil(SR*ALEN),SR), r=rng(99);
+  const mf=m=>440*Math.pow(2,(m-69)/12), LO=.0001;
+  const nb=oc.createBuffer(1,SR*2,SR), nd=nb.getChannelData(0);for(let i=0;i<nd.length;i++)nd[i]=r()*2-1;
+  // buses: dry, plate reverb, dotted-eighth delay → compressor
+  const master=oc.createGain();master.gain.value=.9;
+  const comp=oc.createDynamicsCompressor();comp.threshold.value=-22;comp.ratio.value=4;comp.attack.value=.008;comp.release.value=.18;
+  master.connect(comp);comp.connect(oc.destination);
+  const dry=oc.createGain();dry.connect(master);
+  const irLen=Math.floor(SR*2.6),ir=oc.createBuffer(2,irLen,SR);
+  for(let c=0;c<2;c++){const d=ir.getChannelData(c);let y=0;for(let i=0;i<irLen;i++){y+=((r()*2-1)-y)*.3;d[i]=y*Math.pow(1-i/irLen,2.6)*(i<SR*.012?i/(SR*.012):1);}}
+  const conv=oc.createConvolver();conv.buffer=ir;const wet=oc.createGain();wet.gain.value=.55;conv.connect(wet);wet.connect(master);
+  const send=oc.createGain();send.connect(conv);
+  const dl=oc.createDelay(1);dl.delayTime.value=.51;const fb=oc.createGain();fb.gain.value=.34;const dlp=oc.createBiquadFilter();dlp.type='lowpass';dlp.frequency.value=2600;
+  dl.connect(dlp);dlp.connect(fb);fb.connect(dl);const dOut=oc.createGain();dOut.gain.value=.5;dlp.connect(dOut);dOut.connect(master);dOut.connect(send);
+  const dsend=oc.createGain();dsend.connect(dl);
+  const env=(g,t,a,pk,hold,rel)=>{g.gain.setValueAtTime(LO,t);g.gain.exponentialRampToValueAtTime(pk,t+a);g.gain.setValueAtTime(pk,t+a+hold);g.gain.exponentialRampToValueAtTime(LO,t+a+hold+rel);};
+  const osc=(type,f,t,dur)=>{const o=oc.createOscillator();o.type=type;o.frequency.value=f;o.start(t);o.stop(t+dur);return o;};
+  const noise=(t,dur)=>{const s=oc.createBufferSource();s.buffer=nb;s.loop=true;s.start(t,r()*1.5);s.stop(t+dur);return s;};
+  const route=(n,{d=1,s=0,e=0}={})=>{if(d){const g=oc.createGain();g.gain.value=d;n.connect(g);g.connect(dry);}if(s){const g=oc.createGain();g.gain.value=s;n.connect(g);g.connect(send);}if(e){const g=oc.createGain();g.gain.value=e;n.connect(g);g.connect(dsend);}};
+
+  // ── voices ──
+  const kick=(t,v=1)=>{const o=osc('sine',160,t,.5),g=oc.createGain();o.frequency.setValueAtTime(165,t);o.frequency.exponentialRampToValueAtTime(46,t+.11);env(g,t,.002,.95*v,.02,.34);o.connect(g);route(g);
+    const n=noise(t,.02),h=oc.createBiquadFilter();h.type='highpass';h.frequency.value=2500;const ng=oc.createGain();env(ng,t,.001,.12*v,0,.015);n.connect(h);h.connect(ng);route(ng);};
+  const sub=(t,m,dur,v=.5)=>{const o=osc('sine',mf(m),t,dur+1.2),g=oc.createGain();env(g,t,.03,v,dur,1.1);o.connect(g);route(g,{d:1,s:.1});};
+  const clap=(t,v=1)=>{[0,.011,.023].forEach((o,i)=>{const n=noise(t+o,.25),f=oc.createBiquadFilter();f.type='bandpass';f.frequency.value=1700;f.Q.value=.9;const g=oc.createGain();
+      if(i<2)env(g,t+o,.001,.22*v,0,.012);else env(g,t+o,.001,.3*v,.004,.2);n.connect(f);f.connect(g);route(g,{d:1,s:.35});});
+    const b=osc('triangle',190,t,.15),bg=oc.createGain();env(bg,t,.002,.1*v,0,.09);b.connect(bg);route(bg);};
+  const hat=(t,v=1,open=false)=>{const n=noise(t,.3),f=oc.createBiquadFilter();f.type='highpass';f.frequency.value=7200;const g=oc.createGain();env(g,t,.001,.1*v,0,open?.16:.035);n.connect(f);f.connect(g);route(g,{d:1,s:.12});};
+  const pluck=(t,m,v=1,len=.38)=>{const g=oc.createGain(),f=oc.createBiquadFilter();f.type='lowpass';f.Q.value=2;f.frequency.setValueAtTime(3800,t);f.frequency.exponentialRampToValueAtTime(520,t+len*.8);
+    const a=osc('triangle',mf(m),t,len+.3),b=osc('square',mf(m)*1.003,t,len+.3),bg=oc.createGain();bg.gain.value=.25;a.connect(f);b.connect(bg);bg.connect(f);f.connect(g);env(g,t,.004,.3*v,0,len);route(g,{d:1,s:.4,e:.35});};
+  const bass=(t,m,dur,v=1)=>{const f=oc.createBiquadFilter();f.type='lowpass';f.frequency.value=420;f.Q.value=1.2;const g=oc.createGain();
+    const a=osc('sawtooth',mf(m),t,dur+.2),b=osc('sine',mf(m),t,dur+.2),bg=oc.createGain();bg.gain.value=.9;a.connect(f);b.connect(bg);bg.connect(g);f.connect(g);env(g,t,.008,.34*v,dur*.6,dur*.4);route(g);};
+  const pad=(t,notes,dur,v=.06,att=.7)=>{notes.forEach(m=>{[-8,8].forEach(dt=>{const o=osc('sawtooth',mf(m),t,dur+att+1.4);o.detune.value=dt;const f=oc.createBiquadFilter();f.type='lowpass';f.frequency.setValueAtTime(500,t);f.frequency.linearRampToValueAtTime(1700,t+dur*.6);
+      const g=oc.createGain();env(g,t,att,v/Math.sqrt(notes.length*2)*2,dur-att*.3,1.3);o.connect(f);f.connect(g);route(g,{d:.7,s:.7});});});};
+  const stab=(t,notes,v=1,len=.22)=>{notes.forEach(m=>{const o=osc('sawtooth',mf(m),t,len+.4),o2=osc('square',mf(m)*.998,t,len+.4),f=oc.createBiquadFilter();f.type='lowpass';f.Q.value=1.5;
+      f.frequency.setValueAtTime(3400,t);f.frequency.exponentialRampToValueAtTime(600,t+len);const g=oc.createGain();env(g,t,.003,.1*v,.02,len);o.connect(f);o2.connect(f);f.connect(g);route(g,{d:1,s:.4});});};
+  const riser=(t0_,t1_,v=.2)=>{const n=noise(t0_,t1_-t0_+.05),f=oc.createBiquadFilter();f.type='bandpass';f.Q.value=1.6;f.frequency.setValueAtTime(380,t0_);f.frequency.exponentialRampToValueAtTime(7500,t1_);
+    const g=oc.createGain();g.gain.setValueAtTime(LO,t0_);g.gain.exponentialRampToValueAtTime(v,t1_);g.gain.setValueAtTime(LO,t1_+.02);n.connect(f);f.connect(g);route(g,{d:1,s:.3});};
+  const crash=(t,v=.5,len=1.6)=>{const n=noise(t,len+.2),f=oc.createBiquadFilter();f.type='highpass';f.frequency.value=3200;const g=oc.createGain();env(g,t,.002,.2*v,.02,len);n.connect(f);f.connect(g);route(g,{d:.8,s:.5});};
+  const key=(t,i,sp)=>{const n=noise(t,.05),f=oc.createBiquadFilter();f.type='bandpass';f.frequency.value=sp?900:2200+(i%5)*260;f.Q.value=2.2;const g=oc.createGain();env(g,t,.0008,.07,0,.022);n.connect(f);f.connect(g);route(g,{d:1,s:.1});
+    const o=osc('sine',sp?180:420+(i%4)*40,t,.05),og=oc.createGain();env(og,t,.001,.035,0,.03);o.connect(og);route(og,{d:1});};
+  const bubble=(t,m,v=.08)=>{const o=osc('sine',mf(m),t,.3),g=oc.createGain();o.frequency.setValueAtTime(mf(m)*.9,t);o.frequency.exponentialRampToValueAtTime(mf(m),t+.05);env(g,t,.004,v,0,.22);o.connect(g);route(g,{d:.7,s:.6,e:.4});};
+
+  // ── the score ──
+  const E=.34, BAR=8*E, G0=MORPH0, END_GROOVE=12.6;
+  const CH=[{b:45,n:[57,60,64,67]},{b:41,n:[57,60,65,69]},{b:48,n:[60,64,67,71]},{b:43,n:[59,62,67,71]}];
+  // 0 – 4: room tone and a person typing
+  pad(.3,[45,52,57,60],5.4,.05,1.8);
+  charT.forEach((ct,i)=>key(ct,i,CMD[i]===' '));
+  // 4 – 5.6: enter, four hops, the lift into the window
+  kick(ENTER,.55);sub(ENTER,33,.5,.42);
+  [69,72,76,79].forEach((m,i)=>pluck(D[i],m,.8+.1*i,.3));
+  for(let k=0,t=4.9;t<MORPH0-.02;k++,t+=E/2)hat(t,.35+k*.22);
+  riser(4.95,MORPH0,.24);
+  // 5.62: the window blooms
+  kick(MORPH0,1.1);sub(MORPH0,33,1.8,.6);clap(MORPH0,.7);crash(MORPH0,.35,1.1);
+  stab(MORPH0,[57,64,69,72],.7,.5);
+  // groove
+  for(let bar=0;;bar++){
+    const tb=G0+bar*BAR;if(tb>=END_GROOVE)break;const ch=CH[bar%4];
+    pad(tb,ch.n.map(m=>m-12),Math.min(BAR,END_GROOVE-tb),.1,.5);
+    for(let j=0;j<8;j++){
+      const t=tb+j*E;if(t>=END_GROOVE-.05)break;
+      const short=bar>=2;
+      if(!short?[0,3,4].includes(j):[0,4].includes(j))if(!(bar===0&&j===0))kick(t,.95);
+      if(!short&&t>=7.2&&(j===2||j===6))clap(t,.75);
+      if(!short||j%2===0)hat(t,j%2?.7:.45);
+      if(bar===1&&j===7)hat(t,.8,true);
+      if(j===0)bass(t,ch.b,E*3.6,1);
+      if(!short&&(j===3||j===5))bass(t,ch.b+12,E*.8,.7);
+      if((t>=6.35&&!short)||(short&&j<4)){const pat=[0,2,1,3,2,1,3,2][j];pluck(t,ch.n[pat]+(bar===1?12:0),.6+(j%2?0:.2),.34);}
+    }
+  }
+  // pull-out: a sweep as the camera leaves, then the wall appears as bubbles
+  riser(PULL0-.2,PULL0+.55,.2);crash(PULL0+.55,.25,.8);
+  const PENT=[72,74,76,79,81,84,86];
+  cells.filter((c,i)=>i%3===0).forEach((c,i)=>bubble(c.popT,PENT[i%PENT.length],.07));
+  // the scrub: a tone that follows the handle
+  {const o=osc('sine',440,DRAG0,DRAG1-DRAG0+.3),g=oc.createGain();for(let k=0;k<=24;k++){const tt=DRAG0+(DRAG1-DRAG0)*k/24;o.frequency.setValueAtTime(mf(60)*Math.pow(2,2*ease.cubicInOut(k/24)),tt);}
+    env(g,DRAG0,.06,.045,DRAG1-DRAG0-.1,.25);o.connect(g);route(g,{d:.6,s:.8,e:.5});}
+  // 12.6 – 13.5: nearly nothing
+  sub(END_GROOVE,31,1.0,.14);
+  // gather: a roll that accelerates, then the seal
+  riser(GATHER0,GATHER1,.3);
+  for(let k=0;k<10;k++){const u=k/9;clap(GATHER0+.88*(1-Math.pow(1-u,1.9)),.25+.4*u);}
+  {const o=osc('sine',55,GATHER0,1),g=oc.createGain();o.frequency.setValueAtTime(55,GATHER0);o.frequency.exponentialRampToValueAtTime(220,GATHER1);env(g,GATHER0,.3,.2,.5,.05);o.connect(g);route(g,{d:.8,s:.4});}
+  kick(GATHER1,1.2);sub(GATHER1,33,.9,.8);crash(GATHER1,.5,1.0);
+  // staccato: three stabs, each with its own kick, and air between them
+  [[57,60,64,69],[57,60,65,69],[55,59,62,67]].forEach((nn,i)=>{const t=WORDS[i][0];kick(t,1);stab(t,nn,.9,.2);sub(t,[33,29,31][i],.2,.5);});
+  // wordmark
+  kick(WM,1.1);sub(WM,36,3.4,.55);pad(WM,[60,64,67,71,74],4.5,.1,.5);crash(WM,.3,1.2);
+  [72,76,79,83,86,88].forEach((m,i)=>pluck(WM+.05+i*.06,m,.55+.07*i,.7));
+  pluck(WM+.34,91,.5,1.2);
+  // tagline + the second prompt
+  pluck(TAG,79,.5,.9);pluck(TAG+.22,76,.4,.9);
+  riser(INST-.1,INST+.25,.07);
+  instCharT.forEach((ct,i)=>key(ct,i,INSTX[i]===' '));
+  {const te=instCharT[instCharT.length-1]+.35;kick(te,.6);sub(te,36,1.2,.4);[72,76,79,83,86].forEach((m,i)=>pluck(te+.04+i*.09,m,.45,1.0));pad(te,[60,64,67,71,74],3,.07,.6);}
+  // fade with the picture
+  master.gain.setValueAtTime(.9,DUR-.7);master.gain.linearRampToValueAtTime(0,DUR-.05);
+
+  const buf=await oc.startRendering();
+  let pk=0;for(let c=0;c<2;c++){const d=buf.getChannelData(c);for(let i=0;i<d.length;i++)pk=Math.max(pk,Math.abs(d[i]));}
+  const k=pk>0?.8/pk:1;for(let c=0;c<2;c++){const d=buf.getChannelData(c);for(let i=0;i<d.length;i++)d[i]*=k;}
+  return buf;
+}
+function sync(){
+  try{asrc&&asrc.stop();}catch(e){}asrc=null;
+  if(!soundOn||paused||!abuf||!actx)return;
+  asrc=actx.createBufferSource();asrc.buffer=abuf;asrc.connect(again);asrc.start(0,clamp(cur,0,abuf.duration-.05));
+}
+function enableSound(){
+  if(soundOn||PIN)return false;
+  actx=new (window.AudioContext||window.webkitAudioContext)();again=actx.createGain();again.gain.value=muted?0:1;again.connect(actx.destination);
+  actx.resume();soundOn=true;$('snd').classList.add('on');setT(0);paused=false;sync();return true;
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){t0=performance.now()-cur*1000;sync();}});
+const setT=v=>{cur=clamp(v,0,DUR);t0=performance.now()-cur*1000;sync();};
+const togglePause=()=>{paused=!paused;if(!paused)t0=performance.now()-cur*1000;sync();};
+$('vp').addEventListener('click',e=>{if(e.target.closest('#bar'))return;if(enableSound())return;togglePause();});
+$('bar').addEventListener('click',e=>{setT(e.clientX/innerWidth*DUR);});
+addEventListener('keydown',e=>{
+  if(e.key==='m'||e.key==='M'){if(!soundOn){enableSound();return;}muted=!muted;again.gain.value=muted?0:1;$('snd').textContent=muted?'♪ muted · M':'♪ sound on · M to mute';$('snd').classList.remove('on');$('snd').style.animation='none';$('snd').style.opacity=1;clearTimeout(window.__sndT);window.__sndT=setTimeout(()=>{$('snd').style.opacity=0;},1500);}
+  else if(e.key==='r'||e.key==='R'){setT(0);paused=false;sync();}
+  else if(e.key==='ArrowRight')setT(cur+2);else if(e.key==='ArrowLeft')setT(cur-2);
+  else if(e.key===' '){e.preventDefault();if(!soundOn){enableSound();return;}togglePause();}
+  else if(e.key==='h'||e.key==='H'){
+    const hidden=document.body.classList.toggle('noui');
+    const t=$('toast');t.textContent=hidden?'UI hidden · H to show':'UI shown · H to hide';
+    t.classList.add('on');clearTimeout(window.__uiT);window.__uiT=setTimeout(()=>t.classList.remove('on'),1400);
+  }
+});
+window.__seek=t=>{seek(t);};window.__meta={dur:DUR,fps:60,w:W,h:H};
+start();
+})();
+</script>
+</body>
+</html>
