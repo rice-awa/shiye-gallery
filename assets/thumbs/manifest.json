@@ -66,5 +66,13 @@
   "/murmur-promo": {
     "hash": "7ef37e0b0ecc592be53558c9878702a41c9848df6ccdd87c7caacb78d17496d0",
     "thumbnail": "murmur-promo.webp"
+  },
+  "/medieval-town": {
+    "hash": "2203c06cb01dfe1fa565f5c15eef8fcd76e2fe258393feef940ab2ed359d1c4d",
+    "thumbnail": "medieval-town.webp"
+  },
+  "/pelican-bike-claude": {
+    "hash": "56887e072248266651c4e3aacebe3d4a254ea9164eacd5a0f56ad95d8ffcc89c",
+    "thumbnail": "pelican-bike-claude.webp"
   }
 }
