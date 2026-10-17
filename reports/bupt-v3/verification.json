@@ -1,0 +1,613 @@
+{
+  "checks": [
+    "All 12 desktop pages: readable bounds, sources clear, 3 real rendered WebGL scenes",
+    "Scene entrance stops at rest; real pointer gesture redraws and settles",
+    "Overview pauses and resumes the 3D clock",
+    "Rapid real keyboard navigation and overview selection leave one slide, one canvas, final counters",
+    "3D toggle restores readable static diagrams and resumes rendering",
+    "Pinned mid-transition 3D and history milestone sequencing work",
+    "Reduced motion keeps full 3D stills, complete content and final counters",
+    "320 / 375 / 414 / 768 widths: all 12 pages fit and navigation does not overlap",
+    "Print exposes all 12 pages and static diagrams",
+    "WebGL context loss shows fallback; navigation remains usable",
+    "No-WebGL browser retains all pages with disabled 3D control"
+  ],
+  "scenes": [
+    {
+      "enabled": true,
+      "available": true,
+      "scene": "network",
+      "running": false,
+      "held": false,
+      "elapsed": 2400,
+      "renders": 1,
+      "drawCalls": 63,
+      "triangles": 3024,
+      "geometries": 63,
+      "revision": "186"
+    },
+    {
+      "enabled": true,
+      "available": true,
+      "scene": "satellite",
+      "running": false,
+      "held": false,
+      "elapsed": 2400,
+      "renders": 2,
+      "drawCalls": 47,
+      "triangles": 3740,
+      "geometries": 110,
+      "revision": "186"
+    },
+    {
+      "enabled": true,
+      "available": true,
+      "scene": "globe",
+      "running": false,
+      "held": false,
+      "elapsed": 2400,
+      "renders": 3,
+      "drawCalls": 42,
+      "triangles": 4152,
+      "geometries": 152,
+      "revision": "186"
+    }
+  ],
+  "layout": [
+    {
+      "index": 0,
+      "overlap": [],
+      "outside": [],
+      "spatial": {
+        "enabled": true,
+        "available": false,
+        "scene": null,
+        "running": false,
+        "held": false,
+        "elapsed": 2400,
+        "renders": 0,
+        "drawCalls": 0,
+        "triangles": 0,
+        "geometries": 0,
+        "revision": "186"
+      }
+    },
+    {
+      "index": 1,
+      "overlap": [],
+      "outside": [],
+      "spatial": {
+        "enabled": true,
+        "available": false,
+        "scene": null,
+        "running": false,
+        "held": false,
+        "elapsed": 2400,
+        "renders": 0,
+        "drawCalls": 0,
+        "triangles": 0,
+        "geometries": 0,
+        "revision": "186"
+      }
+    },
+    {
+      "index": 2,
+      "overlap": [],
+      "outside": [],
+      "spatial": {
+        "enabled": true,
+        "available": false,
+        "scene": null,
+        "running": false,
+        "held": false,
+        "elapsed": 2400,
+        "renders": 0,
+        "drawCalls": 0,
+        "triangles": 0,
+        "geometries": 0,
+        "revision": "186"
+      }
+    },
+    {
+      "index": 3,
+      "overlap": [],
+      "outside": [],
+      "spatial": {
+        "enabled": true,
+        "available": false,
+        "scene": null,
+        "running": false,
+        "held": false,
+        "elapsed": 2400,
+        "renders": 0,
+        "drawCalls": 0,
+        "triangles": 0,
+        "geometries": 0,
+        "revision": "186"
+      }
+    },
+    {
+      "index": 4,
+      "overlap": [],
+      "outside": [],
+      "spatial": {
+        "enabled": true,
+        "available": true,
+        "scene": "network",
+        "running": false,
+        "held": false,
+        "elapsed": 2400,
+        "renders": 1,
+        "drawCalls": 63,
+        "triangles": 3024,
+        "geometries": 63,
+        "revision": "186"
+      }
+    },
+    {
+      "index": 5,
+      "overlap": [],
+      "outside": [],
+      "spatial": {
+        "enabled": true,
+        "available": true,
+        "scene": "satellite",
+        "running": false,
+        "held": false,
+        "elapsed": 2400,
+        "renders": 2,
+        "drawCalls": 47,
+        "triangles": 3740,
+        "geometries": 110,
+        "revision": "186"
+      }
+    },
+    {
+      "index": 6,
+      "overlap": [],
+      "outside": [],
+      "spatial": {
+        "enabled": true,
+        "available": true,
+        "scene": null,
+        "running": false,
+        "held": false,
+        "elapsed": 2400,
+        "renders": 2,
+        "drawCalls": 47,
+        "triangles": 3740,
+        "geometries": 110,
+        "revision": "186"
+      }
+    },
+    {
+      "index": 7,
+      "overlap": [],
+      "outside": [],
+      "spatial": {
+        "enabled": true,
+        "available": true,
+        "scene": null,
+        "running": false,
+        "held": false,
+        "elapsed": 2400,
+        "renders": 2,
+        "drawCalls": 47,
+        "triangles": 3740,
+        "geometries": 110,
+        "revision": "186"
+      }
+    },
+    {
+      "index": 8,
+      "overlap": [],
+      "outside": [],
+      "spatial": {
+        "enabled": true,
+        "available": true,
+        "scene": null,
+        "running": false,
+        "held": false,
+        "elapsed": 2400,
+        "renders": 2,
+        "drawCalls": 47,
+        "triangles": 3740,
+        "geometries": 110,
+        "revision": "186"
+      }
+    },
+    {
+      "index": 9,
+      "overlap": [],
+      "outside": [],
+      "spatial": {
+        "enabled": true,
+        "available": true,
+        "scene": "globe",
+        "running": false,
+        "held": false,
+        "elapsed": 2400,
+        "renders": 3,
+        "drawCalls": 42,
+        "triangles": 4152,
+        "geometries": 152,
+        "revision": "186"
+      }
+    },
+    {
+      "index": 10,
+      "overlap": [],
+      "outside": [],
+      "spatial": {
+        "enabled": true,
+        "available": true,
+        "scene": null,
+        "running": false,
+        "held": false,
+        "elapsed": 2400,
+        "renders": 3,
+        "drawCalls": 42,
+        "triangles": 4152,
+        "geometries": 152,
+        "revision": "186"
+      }
+    },
+    {
+      "index": 11,
+      "overlap": [],
+      "outside": [],
+      "spatial": {
+        "enabled": true,
+        "available": true,
+        "scene": null,
+        "running": false,
+        "held": false,
+        "elapsed": 2400,
+        "renders": 3,
+        "drawCalls": 42,
+        "triangles": 4152,
+        "geometries": 152,
+        "revision": "186"
+      }
+    }
+  ],
+  "mobile": [
+    {
+      "index": 0,
+      "width": 320,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 1,
+      "width": 320,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 2,
+      "width": 320,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 3,
+      "width": 320,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 4,
+      "width": 320,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 5,
+      "width": 320,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 6,
+      "width": 320,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 7,
+      "width": 320,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 8,
+      "width": 320,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 9,
+      "width": 320,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 10,
+      "width": 320,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 11,
+      "width": 320,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 0,
+      "width": 375,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 1,
+      "width": 375,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 2,
+      "width": 375,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 3,
+      "width": 375,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 4,
+      "width": 375,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 5,
+      "width": 375,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 6,
+      "width": 375,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 7,
+      "width": 375,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 8,
+      "width": 375,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 9,
+      "width": 375,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 10,
+      "width": 375,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 11,
+      "width": 375,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 0,
+      "width": 414,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 1,
+      "width": 414,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 2,
+      "width": 414,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 3,
+      "width": 414,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 4,
+      "width": 414,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 5,
+      "width": 414,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 6,
+      "width": 414,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 7,
+      "width": 414,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 8,
+      "width": 414,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 9,
+      "width": 414,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 10,
+      "width": 414,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 11,
+      "width": 414,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 0,
+      "width": 768,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 1,
+      "width": 768,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 2,
+      "width": 768,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 3,
+      "width": 768,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 4,
+      "width": 768,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 5,
+      "width": 768,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 6,
+      "width": 768,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 7,
+      "width": 768,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 8,
+      "width": 768,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 9,
+      "width": 768,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 10,
+      "width": 768,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    },
+    {
+      "index": 11,
+      "width": 768,
+      "overflow": [],
+      "scrollOverflow": false,
+      "controlOverlap": false
+    }
+  ],
+  "errors": []
+}
