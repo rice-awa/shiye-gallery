@@ -265,12 +265,12 @@
   .hint-sep{width:2px;height:20px;background:var(--ink);opacity:.18}
 
   /* ---------- touch controls ---------- */
-  .touch-stick,.jump-btn,.touch-hint,.hold-cue{display:none}
+  .touch-stick,.jump-btn,.touch-hint,.brush-btn{display:none}
   body.is-touch .touch-stick{display:block}
   body.is-touch .jump-btn{display:flex}
-  body.is-touch .hold-cue{display:block}
   body.is-touch.editing .touch-hint{display:block;opacity:1;transform:translateX(-50%)}
-  body.panel-open .touch-stick,body.panel-open .jump-btn,body.panel-open .touch-hint{display:none !important}
+  body.is-touch.editing .brush-btn{display:flex}
+  body.panel-open .touch-stick,body.panel-open .jump-btn,body.panel-open .touch-hint,body.panel-open .brush-btn{display:none !important}
   body.is-touch .hint-card{display:none}
   .touch-stick{
     position:absolute;left:20px;bottom:calc(22px + env(safe-area-inset-bottom));
@@ -322,24 +322,27 @@
   .edit-fab:active{transform:translate(2px,2px);box-shadow:2px 2px 0 var(--ink)}
   .touch-hint{
     position:absolute;left:50%;bottom:calc(196px + env(safe-area-inset-bottom));
-    transform:translateX(-50%) translateY(6px);
-    background:var(--ink);color:var(--paper);border:2px solid var(--paper);
-    box-shadow:0 0 0 2px var(--ink);border-radius:999px;padding:7px 13px;
-    font-size:10px;font-weight:800;letter-spacing:.03em;white-space:nowrap;
+    transform:translateX(-50%) translateY(5px);
+    background:rgba(23,18,29,.8);color:var(--paper);
+    border:1.5px solid rgba(251,243,223,.5);border-radius:999px;padding:4px 10px;
+    font-size:8.5px;font-weight:800;letter-spacing:.02em;white-space:nowrap;
     pointer-events:none;z-index:6;opacity:0;
     transition:opacity .25s ease,transform .25s ease;
   }
-  .hold-cue{
-    position:fixed;left:0;top:0;width:58px;height:58px;margin:-29px 0 0 -29px;
-    pointer-events:none;z-index:30;opacity:0;transition:opacity .12s ease;
-    will-change:transform;
+  .brush-btn{
+    position:absolute;right:118px;bottom:calc(50px + env(safe-area-inset-bottom));
+    width:76px;height:46px;padding:0;
+    border:3px solid var(--ink);border-radius:14px;
+    background:var(--lemon);color:var(--ink);font-family:inherit;font-weight:900;
+    box-shadow:4px 4px 0 var(--ink);
+    touch-action:none;pointer-events:auto;z-index:7;cursor:pointer;
+    flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    transition:transform .08s ease,box-shadow .08s ease,background .12s ease;
   }
-  .hold-cue.is-visible{opacity:1}
-  .hold-cue svg{display:block;width:100%;height:100%;transform:rotate(-90deg)}
-  .hold-track{fill:rgba(23,18,29,.3);stroke:rgba(251,243,223,.85);stroke-width:2.5}
-  .hold-fill{fill:none;stroke:var(--lemon);stroke-width:4.5;stroke-linecap:round;stroke-dasharray:126;stroke-dashoffset:126}
-  .hold-cue.is-charging .hold-fill{stroke-dashoffset:0;transition:stroke-dashoffset 1.9s linear}
-  .hold-cue.is-armed .hold-fill{stroke:var(--mint);stroke-dashoffset:0;transition:none}
+  .brush-btn b{font-size:11.5px;line-height:1;font-weight:900;letter-spacing:.06em}
+  .brush-btn small{font-size:7px;letter-spacing:.14em;opacity:.5;font-weight:900;line-height:1}
+  .brush-btn.is-lower{background:var(--mint)}
+  .brush-btn:active{transform:translate(2px,2px);box-shadow:2px 2px 0 var(--ink)}
 
   .toast{
     position:absolute;left:50%;bottom:28px;transform:translate(-50%,14px);
@@ -371,7 +374,9 @@
     .stick-knob{width:50px;height:50px;margin:-25px 0 0 -25px}
     .jump-btn{width:72px;height:72px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));font-size:16px}
     .edit-fab{right:20px;bottom:calc(104px + env(safe-area-inset-bottom));width:70px;height:46px;font-size:12px}
-    .touch-hint{bottom:calc(158px + env(safe-area-inset-bottom));font-size:9px;padding:6px 10px}
+    .brush-btn{right:92px;bottom:calc(30px + env(safe-area-inset-bottom));width:64px;height:40px;border-radius:12px}
+    .brush-btn b{font-size:10.5px}
+    .touch-hint{bottom:calc(158px + env(safe-area-inset-bottom));font-size:8px;padding:4px 9px}
     body.is-touch .toast{bottom:calc(196px + env(safe-area-inset-bottom))}
   }
 </style>
@@ -468,10 +473,10 @@
   </div>
   <button class="jump-btn" id="jumpBtn" type="button" aria-label="跳跃">跳<small>JUMP</small></button>
   <button class="edit-fab" id="editFab" type="button" aria-label="地形雕刻模式" aria-pressed="false">雕刻</button>
-  <div class="touch-hint" aria-hidden="true">单指拖动隆起 · 长按 2s 凹陷 · 双指转镜头</div>
-  <div class="hold-cue" id="holdCue" aria-hidden="true">
-    <svg viewBox="0 0 48 48"><circle class="hold-track" cx="24" cy="24" r="20"/><circle class="hold-fill" cx="24" cy="24" r="20"/></svg>
-  </div>
+  <div class="touch-hint" aria-hidden="true">拖动雕刻 · 双指转镜头</div>
+  <button class="brush-btn" id="brushBtn" type="button" aria-label="雕刻笔刷：隆起">
+    <b id="brushGlyph">↑</b><small id="brushLabel">隆起</small>
+  </button>
 
   <div class="hint-card" id="hintCard">
     <div class="hint-group"><kbd>WASD</kbd><span>移动</span></div>
@@ -2395,16 +2400,16 @@ const raycaster = new THREE.Raycaster();
 const pointerNDC = new THREE.Vector2();
 const pointer = {
   inside: false, stroke: 0, pid: null, dirty: false,
-  type: null, touch: false, armed: false, dir: 1,
-  holdTimer: 0, downX: 0, downY: 0, downT: 0, lastX: 0, lastY: 0,
+  type: null, touch: false, dir: 1,
+  downX: 0, downY: 0, lastX: 0, lastY: 0,
 };
 const hover = { valid: false, point: new THREE.Vector3(), normal: new THREE.Vector3(0, 1, 0) };
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
 
 /* touch input tuning */
 const TOUCH_LIFT = 46;          // raycast above the fingertip so the ring stays visible
-const TOUCH_SLOP = 9;           // px of travel before a touch drag turns into a raise-stroke
-const HOLD_LOWER_MS = 1900;     // hold this long, then drag to scoop terrain down
+const TOUCH_SLOP = 9;           // px of travel before a touch drag turns into a sculpt stroke
+let touchBrush = 1;             // touch brush direction: 1 = raise, -1 = lower (toggle button)
 const touchStick = { x: 0, y: 0, active: false, pid: null };
 const activePointers = new Map();
 let pinchState = null;
@@ -2486,28 +2491,12 @@ function updateRing(time) {
   ringGroup.quaternion.setFromUnitVectors(Z_AXIS, hover.normal);
   const pulse = 1 + Math.sin(time * 4.3) * 0.04;
   ringGroup.scale.setScalar(pulse);
-  const lower = pointer.stroke < 0;
+  const lower = pointer.stroke < 0 || (!pointer.stroke && pointer.touch && touchBrush < 0);
   ringColorMat.color.set(lower ? 0x79e8cf : 0xffd63f);
   ringColorMat.opacity = 0.56 + Math.sin(time * 4.3) * 0.1;
 }
 
 /* ---- sculpt / orbit / pinch gesture handling ---- */
-function holdCueShow(x, y) {
-  const cue = ui.holdCue;
-  if (!cue) return;
-  cue.style.transform = `translate(${x}px, ${y}px)`;
-  cue.classList.remove('is-charging', 'is-armed');
-  cue.classList.add('is-visible');
-  void cue.offsetWidth;
-  cue.classList.add('is-charging');
-}
-function holdCueHide() {
-  const cue = ui.holdCue;
-  if (cue) cue.classList.remove('is-visible', 'is-charging', 'is-armed');
-}
-function clearHoldTimer() {
-  if (pointer.holdTimer) { clearTimeout(pointer.holdTimer); pointer.holdTimer = 0; }
-}
 function releaseCanvasCapture() {
   const canvas = renderer.domElement;
   if (pointer.pid === null) return;
@@ -2516,13 +2505,10 @@ function releaseCanvasCapture() {
   } catch (_) { /* noop */ }
 }
 function cancelGesture() {
-  clearHoldTimer();
-  holdCueHide();
   releaseCanvasCapture();
   pointer.stroke = 0;
   pointer.pid = null;
   pointer.type = null;
-  pointer.armed = false;
   pointer.dirty = true;
   document.body.classList.remove('dragging');
   if (pointer.touch) {
@@ -2543,27 +2529,6 @@ function startSculpt(direction) {
   return true;
 }
 
-/* after a ~2s hold the touch stroke flips to "lower" (right-button equivalent) */
-function armLowerMode() {
-  pointer.holdTimer = 0;
-  if (!state.editMode || !pointer.touch || pointer.pid === null || pointer.armed) return;
-  pointer.armed = true;
-  pointer.dir = -1;
-  pointer.inside = true;
-  updatePointerFromEvent({ clientX: pointer.downX, clientY: pointer.downY });
-  updateHover(true);
-  pointer.stroke = -1;
-  pointer.type = 'sculpt';
-  if (hover.valid) applyBrush(hover.point.x, hover.point.z, -1, 0.16);
-  if (ui.holdCue) {
-    ui.holdCue.classList.add('is-armed');
-    setTimeout(holdCueHide, 260);
-  }
-  vibrate(30);
-  toast('凹陷模式 · 拖动削低地形', 1400);
-  updateHover(true);
-}
-
 function startPinch() {
   const ids = [...activePointers.keys()];
   if (ids.length < 2) return;
@@ -2579,7 +2544,6 @@ function startPinch() {
   };
   pointer.type = 'pinch';
   pointer.pid = null;
-  holdCueHide();
   document.body.classList.remove('dragging');
 }
 function updatePinch() {
@@ -2617,7 +2581,7 @@ function onCanvasPointerDown(e) {
   const touch = e.pointerType !== 'mouse';
   pointer.touch = touch;
   pointer.inside = true;
-  pointer.dir = (e.button === 2 || e.ctrlKey) ? -1 : 1;
+  pointer.dir = touch ? touchBrush : ((e.button === 2 || e.ctrlKey) ? -1 : 1);
   updatePointerFromEvent(e);
   updateHover(true);
 
@@ -2626,17 +2590,9 @@ function onCanvasPointerDown(e) {
     pointer.pid = e.pointerId;
     pointer.downX = e.clientX;
     pointer.downY = e.clientY;
-    pointer.downT = performance.now();
     pointer.type = 'sculpt';
-    pointer.armed = false;
-    if (touch) {
-      /* wait for either drag (raise) or a long hold (lower) */
-      holdCueShow(e.clientX, e.clientY);
-      clearHoldTimer();
-      pointer.holdTimer = setTimeout(armLowerMode, HOLD_LOWER_MS);
-    } else {
-      startSculpt(pointer.dir);
-    }
+    /* touch waits for a real drag; desktop sculpts on the button press */
+    if (!touch) startSculpt(pointer.dir);
     return;
   }
 
@@ -2676,16 +2632,12 @@ function onCanvasPointerMove(e) {
 
   if (!state.editMode || pointer.type !== 'sculpt') return;
 
-  /* touch: decide between drag-to-raise and hold-to-lower */
-  if (pointer.touch && !pointer.stroke && !pointer.armed) {
+  /* touch: a short drag starts the sculpt stroke in the selected brush direction */
+  if (pointer.touch && !pointer.stroke) {
     const moved = Math.hypot(e.clientX - pointer.downX, e.clientY - pointer.downY);
     updatePointerFromEvent(e);
     updateHover(true);
-    if (moved >= TOUCH_SLOP) {
-      clearHoldTimer();
-      holdCueHide();
-      startSculpt(1);
-    }
+    if (moved >= TOUCH_SLOP) startSculpt(pointer.dir);
     return;
   }
 
@@ -2738,7 +2690,9 @@ const ui = {
   stickKnob: document.getElementById('stickKnob'),
   jumpBtn: document.getElementById('jumpBtn'),
   editFab: document.getElementById('editFab'),
-  holdCue: document.getElementById('holdCue'),
+  brushBtn: document.getElementById('brushBtn'),
+  brushGlyph: document.getElementById('brushGlyph'),
+  brushLabel: document.getElementById('brushLabel'),
 };
 let toastTimer = 0;
 function toast(message, duration = 2400) {
@@ -2755,6 +2709,20 @@ function setHintCollapsed(collapsed) {
   ui.hintTab.classList.toggle('is-visible', next);
   ui.hintTab.setAttribute('aria-hidden', String(!next));
   ui.hintClose.setAttribute('aria-expanded', String(!next));
+}
+
+/* touch brush direction: a button toggles raise / lower (no long-press) */
+function setTouchBrush(dir) {
+  touchBrush = dir < 0 ? -1 : 1;
+  const lower = touchBrush < 0;
+  if (ui.brushBtn) {
+    ui.brushBtn.classList.toggle('is-lower', lower);
+    ui.brushBtn.setAttribute('aria-label', `雕刻笔刷：${lower ? '凹陷' : '隆起'}`);
+  }
+  if (ui.brushGlyph) ui.brushGlyph.textContent = lower ? '↓' : '↑';
+  if (ui.brushLabel) ui.brushLabel.textContent = lower ? '凹陷' : '隆起';
+  if (!pointer.stroke) pointer.dir = touchBrush;
+  pointer.dirty = true;
 }
 
 /* ---- touch layout: stick + jump button ---- */
@@ -2847,6 +2815,14 @@ function setupTouchControls() {
       e.preventDefault();
       vibrate(10);
       setEditMode(!state.editMode);
+    });
+  }
+  if (ui.brushBtn) {
+    ui.brushBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      vibrate(10);
+      setTouchBrush(-touchBrush);
     });
   }
 }
@@ -2944,7 +2920,7 @@ function setEditMode(on) {
   if (state.editMode) {
     pointer.dirty = true;
     if (document.body.classList.contains('is-touch')) {
-      toast('雕塑模式 · 单指拖动隆起 · 长按 2 秒后拖动凹陷', 3400);
+      toast('雕塑模式 · 单指拖动雕刻 · 点按钮切换隆起/凹陷', 3200);
     } else {
       toast('雕塑模式 · 左键隆起 / 右键凹陷 · 拖动空白处旋转镜头', 3200);
     }
@@ -3125,6 +3101,7 @@ function setupUI() {
   }, { passive: true, capture: true });
 
   setupTouchControls();
+  setTouchBrush(touchBrush);
 }
 
 /* ------------------------------ view / resize ------------------------------ */
@@ -3231,7 +3208,7 @@ function init() {
       loadingEl.classList.add('hide');
       setTimeout(() => { loadingEl.style.display = 'none'; }, 750);
       const tip = document.body.classList.contains('is-touch')
-        ? '左侧摇杆移动 · 右下角跳跃 · 面板里开启雕刻'
+        ? '左侧摇杆移动 · 右侧跳跃 · 雕刻键进入雕塑模式'
         : 'WASD 移动 · 空格跳跃 · E 开启雕塑模式';
       setTimeout(() => toast(tip, 3400), 900);
     });
@@ -3276,7 +3253,7 @@ window.__TOON__ = {
   get editCount() { return edits.size; },
   get gesture() {
     return {
-      type: pointer.type, stroke: pointer.stroke, armed: pointer.armed,
+      type: pointer.type, stroke: pointer.stroke, brush: touchBrush,
       touch: pointer.touch, pid: pointer.pid, inside: pointer.inside,
       zoom: +state.zoom.toFixed(3), pinching: !!pinchState, locked: gestureLock,
     };
@@ -3312,6 +3289,7 @@ window.__TOON__ = {
   sampleHeight(x, z) { return sampleHeight(displayHeights, x, z); },
   setTime(t) { state.time = clamp(t, 0, 24); updateCelestial(); syncTimeUI(true); },
   setEditMode,
+  setTouchBrush,
   setOutline,
   setCameraMode,
   setAutoTime,
