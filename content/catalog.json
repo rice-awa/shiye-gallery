@@ -153,5 +153,15 @@
       "创意编程"
     ],
     "order": -3
+  },
+  "experiments/tooncraft.html": {
+    "title": "TOONCRAFT / 手办沙盒",
+    "description": "低多边形手办沙盘：漫游海岛、雕刻地形，在昼夜流转中重新生成自己的小世界。",
+    "tags": [
+      "3D",
+      "Three.js",
+      "创意编程"
+    ],
+    "order": -4
   }
 }

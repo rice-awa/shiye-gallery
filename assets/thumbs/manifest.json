@@ -74,5 +74,9 @@
   "/pelican-bike-claude": {
     "hash": "56887e072248266651c4e3aacebe3d4a254ea9164eacd5a0f56ad95d8ffcc89c",
     "thumbnail": "pelican-bike-claude.webp"
+  },
+  "/tooncraft": {
+    "hash": "9a230935bb585c14286a9b87859db1e8518b92d3777858a847978ad426b318f9",
+    "thumbnail": "tooncraft.webp"
   }
 }
