@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>TOONCRAFT · 手办沙盒</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23ffd63f'/%3E%3Cpath d='M32 8l8 20 22 2-17 14 6 22-19-12-19 12 6-22L2 30l22-2z' fill='%2317121d'/%3E%3C/svg%3E">
 <style>
@@ -17,7 +17,7 @@
     --shadow:5px 5px 0 var(--ink);
   }
   *{box-sizing:border-box}
-  html,body{height:100%;margin:0}
+  html,body{height:100%;margin:0;overscroll-behavior:none;overscroll-behavior-x:none}
   body{
     overflow:hidden;
     background:#a9e7ff;
@@ -26,10 +26,12 @@
     user-select:none;
     -webkit-user-select:none;
     touch-action:none;
+    -webkit-touch-callout:none;
   }
-  #app{position:fixed;inset:0}
-  #app canvas{display:block;width:100%;height:100%;outline:none;cursor:grab}
+  #app{position:fixed;inset:0;touch-action:none}
+  #app canvas{display:block;width:100%;height:100%;outline:none;cursor:grab;touch-action:none;-webkit-touch-callout:none}
   body.editing #app canvas{cursor:crosshair}
+  body.dragging:not(.editing) #app canvas{cursor:grabbing}
 
   /* ---------- loading ---------- */
   #loading{
@@ -74,16 +76,16 @@
     animation:drop .7s cubic-bezier(.18,.9,.3,1.18) both;
   }
   .collapse-btn{
-    position:absolute;top:8px;right:-18px;width:32px;height:42px;z-index:3;
-    border:3px solid var(--ink);border-left:0;border-radius:0 11px 11px 0;
-    background:var(--sky);color:var(--ink);font-family:inherit;font-weight:900;
-    font-size:15px;line-height:1;padding:0;display:grid;place-items:center;
-    box-shadow:3px 3px 0 var(--ink);cursor:pointer;
+    flex:0 0 auto;width:27px;height:27px;padding:0;margin-top:1px;
+    border:2.5px solid var(--ink);border-radius:9px;background:var(--paper);
+    color:var(--ink);font-family:inherit;font-weight:900;font-size:15px;line-height:1;
+    display:grid;place-items:center;box-shadow:2px 2px 0 var(--ink);cursor:pointer;
     transition:background .12s ease,transform .08s ease,box-shadow .08s ease;
   }
-  .collapse-btn:hover{background:#cdf4ff}
+  .collapse-btn:hover{background:var(--sky)}
   .collapse-btn:active{transform:translate(1px,1px);box-shadow:1px 1px 0 var(--ink)}
   .collapse-btn:focus-visible{outline:2px solid var(--pink);outline-offset:2px}
+  .head-right{display:flex;align-items:center;gap:6px;flex:0 0 auto;margin-top:1px}
   .panel-tab{
     position:absolute;top:18px;left:18px;z-index:12;pointer-events:none;
     display:flex;align-items:center;gap:8px;padding:10px 14px;
@@ -106,7 +108,7 @@
     background:rgba(255,214,63,.9);border:2px solid var(--ink);border-radius:4px;
   }
   @keyframes drop{from{transform:translateY(-18px) rotate(-1deg);opacity:0}to{transform:none;opacity:1}}
-  .panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+  .panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
   .brand{display:flex;gap:9px;align-items:flex-start;min-width:0}
   .brand-mark{
     width:14px;height:14px;flex:0 0 auto;margin-top:4px;background:var(--pink);
@@ -228,9 +230,32 @@
   .hint-card{
     position:absolute;left:20px;bottom:20px;display:flex;align-items:center;gap:14px;
     background:var(--paper);border:3px solid var(--ink);border-radius:14px;
-    box-shadow:4px 4px 0 var(--ink);padding:10px 14px;
-    font-size:10.5px;font-weight:800;pointer-events:none;
+    box-shadow:4px 4px 0 var(--ink);padding:10px 12px 10px 14px;
+    font-size:10.5px;font-weight:800;pointer-events:auto;
+    transition:opacity .18s ease,transform .22s ease,visibility .22s;
   }
+  .hint-card.is-collapsed{opacity:0;visibility:hidden;pointer-events:none;transform:translateY(10px) scale(.97)}
+  .hint-close{
+    flex:0 0 auto;width:22px;height:22px;margin-left:2px;padding:0;
+    border:2.5px solid var(--ink);border-radius:7px;background:#fffdf5;color:var(--ink);
+    font-family:inherit;font-weight:900;font-size:14px;line-height:1;display:grid;place-items:center;
+    box-shadow:2px 2px 0 var(--ink);cursor:pointer;
+    transition:background .12s ease,transform .08s ease,box-shadow .08s ease;
+  }
+  .hint-close:hover{background:var(--pink)}
+  .hint-close:active{transform:translate(1px,1px);box-shadow:1px 1px 0 var(--ink)}
+  .hint-tab{
+    position:absolute;left:20px;bottom:20px;z-index:6;width:38px;height:38px;padding:0;
+    border:3px solid var(--ink);border-radius:12px;background:var(--paper);color:var(--ink);
+    font-family:inherit;font-weight:900;font-size:16px;display:grid;place-items:center;
+    box-shadow:4px 4px 0 var(--ink);cursor:pointer;
+    opacity:0;visibility:hidden;pointer-events:none;transform:translateY(8px) scale(.94);
+    transition:opacity .18s ease,transform .22s cubic-bezier(.2,.9,.3,1.3),visibility .22s;
+  }
+  .hint-tab.is-visible{opacity:1;visibility:visible;pointer-events:auto;transform:none}
+  .hint-tab:hover{background:var(--lemon)}
+  .hint-tab:active{transform:translate(2px,2px);box-shadow:2px 2px 0 var(--ink)}
+  body.is-touch .hint-tab{display:none}
   .hint-group{display:flex;align-items:center;gap:5px;white-space:nowrap}
   .hint-group kbd{
     display:inline-block;background:#fffdf5;border:2px solid var(--ink);border-radius:5px;
@@ -238,6 +263,84 @@
     font-size:9px;font-weight:900;line-height:1.25;box-shadow:1px 1px 0 var(--ink);
   }
   .hint-sep{width:2px;height:20px;background:var(--ink);opacity:.18}
+
+  /* ---------- touch controls ---------- */
+  .touch-stick,.jump-btn,.touch-hint,.hold-cue{display:none}
+  body.is-touch .touch-stick{display:block}
+  body.is-touch .jump-btn{display:flex}
+  body.is-touch .hold-cue{display:block}
+  body.is-touch.editing .touch-hint{display:block;opacity:1;transform:translateX(-50%)}
+  body.panel-open .touch-stick,body.panel-open .jump-btn,body.panel-open .touch-hint{display:none !important}
+  body.is-touch .hint-card{display:none}
+  .touch-stick{
+    position:absolute;left:20px;bottom:calc(22px + env(safe-area-inset-bottom));
+    width:140px;height:140px;border:3px solid var(--ink);border-radius:50%;
+    background:rgba(251,243,223,.58);
+    box-shadow:5px 5px 0 var(--ink),inset 0 0 0 9px rgba(255,255,255,.26);
+    touch-action:none;pointer-events:auto;z-index:7;
+    transition:background .18s ease;
+  }
+  .touch-stick::before,.touch-stick::after{
+    content:"";position:absolute;background:rgba(23,18,29,.16);border-radius:2px;pointer-events:none;
+  }
+  .touch-stick::before{left:50%;top:15px;width:2px;height:12px;transform:translateX(-1px)}
+  .touch-stick::after{top:50%;left:15px;width:12px;height:2px;transform:translateY(-1px)}
+  .touch-stick.is-active{background:rgba(255,214,63,.34)}
+  .stick-knob{
+    position:absolute;top:50%;left:50%;width:62px;height:62px;margin:-31px 0 0 -31px;
+    border:3px solid var(--ink);border-radius:50%;background:var(--lemon);
+    box-shadow:3px 3px 0 var(--ink);display:grid;place-items:center;
+    will-change:transform;pointer-events:none;
+    transition:transform .22s cubic-bezier(.2,.9,.3,1.4),background .15s ease;
+  }
+  .stick-knob i{display:block;width:16px;height:16px;border:3px solid var(--ink);border-radius:50%;opacity:.5}
+  .touch-stick.is-active .stick-knob{background:var(--mint)}
+  .jump-btn{
+    position:absolute;right:22px;bottom:calc(26px + env(safe-area-inset-bottom));
+    width:92px;height:92px;border:3px solid var(--ink);border-radius:50%;
+    background:var(--pink);color:var(--ink);font-family:inherit;font-weight:900;
+    font-size:19px;letter-spacing:.04em;box-shadow:5px 5px 0 var(--ink);
+    touch-action:none;pointer-events:auto;z-index:7;cursor:pointer;padding:0;
+    flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    transition:transform .08s ease,box-shadow .08s ease,background .12s ease;
+  }
+  .jump-btn small{font-size:7.5px;letter-spacing:.16em;opacity:.55;font-weight:900;line-height:1}
+  .jump-btn.is-down{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink);background:var(--mint)}
+  .edit-fab{
+    display:none;
+    position:absolute;right:30px;bottom:calc(136px + env(safe-area-inset-bottom));
+    width:78px;height:52px;border:3px solid var(--ink);border-radius:16px;
+    background:var(--paper);color:var(--ink);font-family:inherit;font-weight:900;
+    font-size:13.5px;letter-spacing:.06em;box-shadow:4px 4px 0 var(--ink);
+    touch-action:none;pointer-events:auto;z-index:7;cursor:pointer;padding:0;
+    transition:transform .08s ease,box-shadow .08s ease,background .12s ease;
+  }
+  body.is-touch .edit-fab{display:block}
+  body.panel-open .edit-fab{display:none !important}
+  .edit-fab.is-on{background:var(--lemon)}
+  .edit-fab.is-on{box-shadow:4px 4px 0 var(--ink),inset 0 0 0 3px rgba(23,18,29,.12)}
+  .edit-fab:active{transform:translate(2px,2px);box-shadow:2px 2px 0 var(--ink)}
+  .touch-hint{
+    position:absolute;left:50%;bottom:calc(196px + env(safe-area-inset-bottom));
+    transform:translateX(-50%) translateY(6px);
+    background:var(--ink);color:var(--paper);border:2px solid var(--paper);
+    box-shadow:0 0 0 2px var(--ink);border-radius:999px;padding:7px 13px;
+    font-size:10px;font-weight:800;letter-spacing:.03em;white-space:nowrap;
+    pointer-events:none;z-index:6;opacity:0;
+    transition:opacity .25s ease,transform .25s ease;
+  }
+  .hold-cue{
+    position:fixed;left:0;top:0;width:58px;height:58px;margin:-29px 0 0 -29px;
+    pointer-events:none;z-index:30;opacity:0;transition:opacity .12s ease;
+    will-change:transform;
+  }
+  .hold-cue.is-visible{opacity:1}
+  .hold-cue svg{display:block;width:100%;height:100%;transform:rotate(-90deg)}
+  .hold-track{fill:rgba(23,18,29,.3);stroke:rgba(251,243,223,.85);stroke-width:2.5}
+  .hold-fill{fill:none;stroke:var(--lemon);stroke-width:4.5;stroke-linecap:round;stroke-dasharray:126;stroke-dashoffset:126}
+  .hold-cue.is-charging .hold-fill{stroke-dashoffset:0;transition:stroke-dashoffset 1.9s linear}
+  .hold-cue.is-armed .hold-fill{stroke:var(--mint);stroke-dashoffset:0;transition:none}
+
   .toast{
     position:absolute;left:50%;bottom:28px;transform:translate(-50%,14px);
     background:var(--ink);color:var(--paper);border:3px solid var(--paper);
@@ -251,16 +354,25 @@
     position:absolute;inset:0;pointer-events:none;
     background:radial-gradient(ellipse at 50% 44%,transparent 54%,rgba(23,18,29,.13) 100%);
   }
+  body.is-touch .toast{bottom:calc(246px + env(safe-area-inset-bottom))}
   @media (max-width:760px){
     .panel-dock{left:12px;top:12px;width:calc(100vw - 44px)}
-    .panel{padding:13px;border-radius:15px}
+    .panel{padding:13px;border-radius:15px;max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
     .panel::before{display:none}
     .panel-head h1{font-size:20px}
-    .collapse-btn{right:-16px;width:30px;height:38px;border-radius:0 10px 10px 0}
     .panel-tab{top:12px;left:12px}
     .sticker{display:none}
     .hint-card{display:none}
     .toast{bottom:16px;width:calc(100vw - 44px);white-space:normal;text-align:center;border-radius:14px}
+    body.is-touch .toast{bottom:calc(246px + env(safe-area-inset-bottom))}
+  }
+  @media (max-height:560px){
+    .touch-stick{width:108px;height:108px;left:14px;bottom:calc(14px + env(safe-area-inset-bottom))}
+    .stick-knob{width:50px;height:50px;margin:-25px 0 0 -25px}
+    .jump-btn{width:72px;height:72px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));font-size:16px}
+    .edit-fab{right:20px;bottom:calc(104px + env(safe-area-inset-bottom));width:70px;height:46px;font-size:12px}
+    .touch-hint{bottom:calc(158px + env(safe-area-inset-bottom));font-size:9px;padding:6px 10px}
+    body.is-touch .toast{bottom:calc(196px + env(safe-area-inset-bottom))}
   }
 </style>
 </head>
@@ -283,7 +395,6 @@
 
   <div class="panel-dock" id="panelDock">
   <aside class="panel" aria-label="沙盘控制台">
-    <button class="collapse-btn" id="panelCollapse" aria-label="收起控制面板" aria-expanded="true" aria-controls="panelDock" title="收起面板（H）">‹</button>
     <header class="panel-head">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true"></span>
@@ -292,7 +403,10 @@
           <p class="subtitle">手办沙盒 · NPR 沙盘</p>
         </div>
       </div>
-      <span class="seed-tag" id="seedTag">#000000</span>
+      <div class="head-right">
+        <span class="seed-tag" id="seedTag">#000000</span>
+        <button class="collapse-btn" id="panelCollapse" aria-label="收起控制面板" aria-expanded="true" aria-controls="panelDock" title="收起面板（H）">‹</button>
+      </div>
     </header>
 
     <div class="rule"></div>
@@ -349,15 +463,28 @@
 
   <div class="sticker">LOW-POLY · TOON · OUTLINE</div>
 
-  <div class="hint-card" aria-hidden="true">
+  <div class="touch-stick" id="stickZone" role="group" aria-label="移动摇杆">
+    <div class="stick-knob" id="stickKnob" aria-hidden="true"><i></i></div>
+  </div>
+  <button class="jump-btn" id="jumpBtn" type="button" aria-label="跳跃">跳<small>JUMP</small></button>
+  <button class="edit-fab" id="editFab" type="button" aria-label="地形雕刻模式" aria-pressed="false">雕刻</button>
+  <div class="touch-hint" aria-hidden="true">单指拖动隆起 · 长按 2s 凹陷 · 双指转镜头</div>
+  <div class="hold-cue" id="holdCue" aria-hidden="true">
+    <svg viewBox="0 0 48 48"><circle class="hold-track" cx="24" cy="24" r="20"/><circle class="hold-fill" cx="24" cy="24" r="20"/></svg>
+  </div>
+
+  <div class="hint-card" id="hintCard">
     <div class="hint-group"><kbd>WASD</kbd><span>移动</span></div>
     <div class="hint-group"><kbd>Space</kbd><span>跳跃</span></div>
     <div class="hint-sep"></div>
     <div class="hint-group"><kbd>左键</kbd><span>隆起</span></div>
     <div class="hint-group"><kbd>右键</kbd><span>凹陷</span></div>
     <div class="hint-sep"></div>
+    <div class="hint-group"><kbd>拖动</kbd><span>转镜头</span></div>
     <div class="hint-group"><kbd>滚轮</kbd><span>缩放</span></div>
+    <button class="hint-close" id="hintClose" type="button" aria-label="收起操作说明" aria-expanded="true" title="收起操作说明">×</button>
   </div>
+  <button class="hint-tab" id="hintTab" type="button" aria-label="展开操作说明" aria-hidden="true" title="操作说明">?</button>
 
   <div class="toast" id="toast" role="status"></div>
   <div class="vignette"></div>
@@ -373,11 +500,25 @@ const loadError = document.getElementById('loadError');
 const $ = (s) => document.querySelector(s);
 
 let THREE;
+/* race the CDN against a short timeout: a slow/black-holed host must not freeze loading */
+async function importWithTimeout(url, ms = 4500) {
+  let timer = 0;
+  try {
+    return await Promise.race([
+      import(url),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('CDN timeout: ' + url)), ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 try {
-  THREE = await import('https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js');
+  THREE = await importWithTimeout('https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js');
 } catch (e) {
   try {
-    THREE = await import('https://unpkg.com/three@0.169.0/build/three.module.js');
+    THREE = await importWithTimeout('https://unpkg.com/three@0.169.0/build/three.module.js');
   } catch (e2) {
     loadingEl.querySelector('h2').textContent = '沙盘搭建失败';
     loadError.style.display = 'block';
@@ -534,6 +675,7 @@ const camState = {
   az: Math.PI * 0.25,
   el: 0.615,
   dist: 90,
+  orbitPause: 0,
 };
 
 const hemi = new THREE.HemisphereLight(0xd6f4ff, 0x8aa064, 1.05);
@@ -2148,6 +2290,13 @@ function updateCharacter(dt, time) {
   let forwardInput = 0, sideInput = 0;
   forwardInput = (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) - (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0);
   sideInput = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
+  /* virtual joystick (touch) blends with the keyboard */
+  if (touchStick.active) {
+    forwardInput += -touchStick.y;
+    sideInput += touchStick.x;
+  }
+  forwardInput = clamp(forwardInput, -1, 1);
+  sideInput = clamp(sideInput, -1, 1);
   _moveTarget.set(0, 0, 0);
   if (forwardInput !== 0 || sideInput !== 0) {
     _forward.copy(camState.target).sub(camera.position);
@@ -2227,7 +2376,8 @@ function updateCharacter(dt, time) {
 
 /* ------------------------------ camera update ------------------------------ */
 function updateCamera(dt, snap = false) {
-  if (state.cameraMode === 'orbit') camState.az += dt * 0.16;
+  camState.orbitPause = Math.max(0, camState.orbitPause - dt);
+  if (state.cameraMode === 'orbit' && camState.orbitPause <= 0) camState.az += dt * 0.16;
   _aim.set(char.pos.x + char.vel.x * 0.16, char.pos.y + 0.9, char.pos.z + char.vel.z * 0.16);
   if (snap) camState.target.copy(_aim);
   else camState.target.lerp(_aim, 1 - Math.exp(-dt * 4.8));
@@ -2243,9 +2393,30 @@ function updateCamera(dt, snap = false) {
 /* ------------------------------ sculpt cursor + raycasting ------------------------------ */
 const raycaster = new THREE.Raycaster();
 const pointerNDC = new THREE.Vector2();
-const pointer = { inside: false, stroke: 0, pid: null, dirty: false };
+const pointer = {
+  inside: false, stroke: 0, pid: null, dirty: false,
+  type: null, touch: false, armed: false, dir: 1,
+  holdTimer: 0, downX: 0, downY: 0, downT: 0, lastX: 0, lastY: 0,
+};
 const hover = { valid: false, point: new THREE.Vector3(), normal: new THREE.Vector3(0, 1, 0) };
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
+
+/* touch input tuning */
+const TOUCH_LIFT = 46;          // raycast above the fingertip so the ring stays visible
+const TOUCH_SLOP = 9;           // px of travel before a touch drag turns into a raise-stroke
+const HOLD_LOWER_MS = 1900;     // hold this long, then drag to scoop terrain down
+const touchStick = { x: 0, y: 0, active: false, pid: null };
+const activePointers = new Map();
+let pinchState = null;
+let gestureLock = false;
+
+function isTouchPrimary() {
+  return window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(hover: none)').matches;
+}
+function vibrate(ms) {
+  if (!navigator.vibrate) return;
+  try { navigator.vibrate(ms); } catch (_) { /* noop */ }
+}
 
 let ringGroup, ringColorMat;
 function createRing() {
@@ -2272,9 +2443,10 @@ function createRing() {
 
 function updatePointerFromEvent(e) {
   const rect = renderer.domElement.getBoundingClientRect();
+  const lift = pointer.touch ? TOUCH_LIFT : 0;
   pointerNDC.set(
     ((e.clientX - rect.left) / rect.width) * 2 - 1,
-    -((e.clientY - rect.top) / rect.height) * 2 + 1
+    -((e.clientY - rect.top - lift) / rect.height) * 2 + 1
   );
   pointer.dirty = true;
 }
@@ -2319,32 +2491,230 @@ function updateRing(time) {
   ringColorMat.opacity = 0.56 + Math.sin(time * 4.3) * 0.1;
 }
 
-function beginStroke(e) {
-  if (!state.editMode) return;
-  if (e.button !== 0 && e.button !== 2) return;
-  e.preventDefault();
-  pointer.inside = true;
-  updatePointerFromEvent(e);
+/* ---- sculpt / orbit / pinch gesture handling ---- */
+function holdCueShow(x, y) {
+  const cue = ui.holdCue;
+  if (!cue) return;
+  cue.style.transform = `translate(${x}px, ${y}px)`;
+  cue.classList.remove('is-charging', 'is-armed');
+  cue.classList.add('is-visible');
+  void cue.offsetWidth;
+  cue.classList.add('is-charging');
+}
+function holdCueHide() {
+  const cue = ui.holdCue;
+  if (cue) cue.classList.remove('is-visible', 'is-charging', 'is-armed');
+}
+function clearHoldTimer() {
+  if (pointer.holdTimer) { clearTimeout(pointer.holdTimer); pointer.holdTimer = 0; }
+}
+function releaseCanvasCapture() {
+  const canvas = renderer.domElement;
+  if (pointer.pid === null) return;
+  try {
+    if (canvas.hasPointerCapture(pointer.pid)) canvas.releasePointerCapture(pointer.pid);
+  } catch (_) { /* noop */ }
+}
+function cancelGesture() {
+  clearHoldTimer();
+  holdCueHide();
+  releaseCanvasCapture();
+  pointer.stroke = 0;
+  pointer.pid = null;
+  pointer.type = null;
+  pointer.armed = false;
+  pointer.dirty = true;
+  document.body.classList.remove('dragging');
+  if (pointer.touch) {
+    pointer.inside = false;
+    hover.valid = false;
+    if (ringGroup) ringGroup.visible = false;
+  }
+}
+function endStroke() { cancelGesture(); }
+
+/* begin raising at the current hover point */
+function startSculpt(direction) {
+  if (!hover.valid) return false;
+  pointer.stroke = direction;
+  pointer.type = 'sculpt';
+  applyBrush(hover.point.x, hover.point.z, direction, 0.2);
   updateHover(true);
-  if (!hover.valid) return;
-  pointer.stroke = e.button === 0 ? 1 : -1;
-  pointer.pid = e.pointerId;
-  try { renderer.domElement.setPointerCapture(e.pointerId); } catch (_) { /* noop */ }
-  applyBrush(hover.point.x, hover.point.z, pointer.stroke, 0.2);
+  return true;
+}
+
+/* after a ~2s hold the touch stroke flips to "lower" (right-button equivalent) */
+function armLowerMode() {
+  pointer.holdTimer = 0;
+  if (!state.editMode || !pointer.touch || pointer.pid === null || pointer.armed) return;
+  pointer.armed = true;
+  pointer.dir = -1;
+  pointer.inside = true;
+  updatePointerFromEvent({ clientX: pointer.downX, clientY: pointer.downY });
+  updateHover(true);
+  pointer.stroke = -1;
+  pointer.type = 'sculpt';
+  if (hover.valid) applyBrush(hover.point.x, hover.point.z, -1, 0.16);
+  if (ui.holdCue) {
+    ui.holdCue.classList.add('is-armed');
+    setTimeout(holdCueHide, 260);
+  }
+  vibrate(30);
+  toast('凹陷模式 · 拖动削低地形', 1400);
   updateHover(true);
 }
 
-function endStroke() {
-  if (!pointer.stroke) return;
-  if (pointer.pid !== null) {
-    try {
-      if (renderer.domElement.hasPointerCapture(pointer.pid)) renderer.domElement.releasePointerCapture(pointer.pid);
-    } catch (_) { /* noop */ }
-  }
-  pointer.stroke = 0;
+function startPinch() {
+  const ids = [...activePointers.keys()];
+  if (ids.length < 2) return;
+  const a = activePointers.get(ids[0]);
+  const b = activePointers.get(ids[1]);
+  pinchState = {
+    idA: ids[0], idB: ids[1],
+    dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+    midX: (a.x + b.x) / 2,
+    midY: (a.y + b.y) / 2,
+    zoom: state.zoom,
+    el: camState.el,
+  };
+  pointer.type = 'pinch';
   pointer.pid = null;
-  pointer.dirty = true;
+  holdCueHide();
+  document.body.classList.remove('dragging');
 }
+function updatePinch() {
+  if (!pinchState) return false;
+  const a = activePointers.get(pinchState.idA);
+  const b = activePointers.get(pinchState.idB);
+  if (!a || !b) return true;
+  const dist = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+  const midX = (a.x + b.x) / 2;
+  const midY = (a.y + b.y) / 2;
+  state.zoom = clamp(pinchState.zoom * (dist / pinchState.dist), 0.72, 2.1);
+  camState.az += (midX - pinchState.midX) * 0.0055;
+  camState.el = clamp(pinchState.el + (midY - pinchState.midY) * 0.0032, 0.32, 1.28);
+  pinchState.midX = midX;
+  pinchState.midY = midY;
+  camState.orbitPause = 1.4;
+  applyZoom();
+  return true;
+}
+
+function onCanvasPointerDown(e) {
+  if (e.pointerType === 'touch' && !document.body.classList.contains('is-touch')) enableTouchUI(true);
+  e.preventDefault();
+  try { renderer.domElement.setPointerCapture(e.pointerId); } catch (_) { /* noop */ }
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (activePointers.size >= 2) {
+    cancelGesture();
+    gestureLock = true;
+    startPinch();
+    return;
+  }
+  if (gestureLock) return;
+
+  const touch = e.pointerType !== 'mouse';
+  pointer.touch = touch;
+  pointer.inside = true;
+  pointer.dir = (e.button === 2 || e.ctrlKey) ? -1 : 1;
+  updatePointerFromEvent(e);
+  updateHover(true);
+
+  if (state.editMode) {
+    if (!touch && e.button !== 0 && e.button !== 2 && !e.ctrlKey) return;
+    pointer.pid = e.pointerId;
+    pointer.downX = e.clientX;
+    pointer.downY = e.clientY;
+    pointer.downT = performance.now();
+    pointer.type = 'sculpt';
+    pointer.armed = false;
+    if (touch) {
+      /* wait for either drag (raise) or a long hold (lower) */
+      holdCueShow(e.clientX, e.clientY);
+      clearHoldTimer();
+      pointer.holdTimer = setTimeout(armLowerMode, HOLD_LOWER_MS);
+    } else {
+      startSculpt(pointer.dir);
+    }
+    return;
+  }
+
+  /* outside edit mode a drag orbits the camera */
+  pointer.pid = e.pointerId;
+  pointer.downX = pointer.lastX = e.clientX;
+  pointer.downY = pointer.lastY = e.clientY;
+  pointer.type = 'look';
+  document.body.classList.add('dragging');
+}
+
+function onCanvasPointerMove(e) {
+  if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (pinchState) { updatePinch(); return; }
+
+  if (pointer.pid !== e.pointerId) {
+    if (e.pointerType !== 'touch' && pointer.pid === null) {
+      pointer.touch = false;
+      pointer.inside = true;
+      updatePointerFromEvent(e);
+    }
+    return;
+  }
+
+  if (pointer.type === 'look') {
+    const dx = e.clientX - pointer.lastX;
+    const dy = e.clientY - pointer.lastY;
+    pointer.lastX = e.clientX;
+    pointer.lastY = e.clientY;
+    if (Math.abs(dx) + Math.abs(dy) < 0.01) return;
+    camState.az += dx * 0.006;
+    camState.el = clamp(camState.el + dy * 0.0045, 0.32, 1.28);
+    camState.orbitPause = 1.4;
+    return;
+  }
+
+  if (!state.editMode || pointer.type !== 'sculpt') return;
+
+  /* touch: decide between drag-to-raise and hold-to-lower */
+  if (pointer.touch && !pointer.stroke && !pointer.armed) {
+    const moved = Math.hypot(e.clientX - pointer.downX, e.clientY - pointer.downY);
+    updatePointerFromEvent(e);
+    updateHover(true);
+    if (moved >= TOUCH_SLOP) {
+      clearHoldTimer();
+      holdCueHide();
+      startSculpt(1);
+    }
+    return;
+  }
+
+  pointer.inside = true;
+  updatePointerFromEvent(e);
+  updateHover(true);
+  if (!pointer.stroke && pointer.type === 'sculpt' && hover.valid) startSculpt(pointer.dir);
+}
+
+function onCanvasPointerUp(e) {
+  activePointers.delete(e.pointerId);
+  if (activePointers.size === 0) {
+    pinchState = null;
+    gestureLock = false;
+    if (pointer.pid === null) pointer.type = null;
+  } else if (pinchState && activePointers.size < 2) {
+    pinchState = null;
+  }
+  if (pointer.pid !== e.pointerId) return;
+  endStroke();
+}
+
+function onCanvasPointerLeave() {
+  if (pointer.pid !== null) return;
+  pointer.inside = false;
+  hover.valid = false;
+  if (ringGroup) ringGroup.visible = false;
+}
+
 
 /* ------------------------------ UI ------------------------------ */
 const ui = {
@@ -2356,11 +2726,19 @@ const ui = {
   panelDock: document.getElementById('panelDock'),
   panelCollapse: document.getElementById('panelCollapse'),
   panelTab: document.getElementById('panelTab'),
+  hintCard: document.getElementById('hintCard'),
+  hintClose: document.getElementById('hintClose'),
+  hintTab: document.getElementById('hintTab'),
   autoTime: document.getElementById('autoTime'),
   timeSlider: document.getElementById('timeSlider'),
   reseedBtn: document.getElementById('reseedBtn'),
   seedTag: document.getElementById('seedTag'),
   toast: document.getElementById('toast'),
+  stickZone: document.getElementById('stickZone'),
+  stickKnob: document.getElementById('stickKnob'),
+  jumpBtn: document.getElementById('jumpBtn'),
+  editFab: document.getElementById('editFab'),
+  holdCue: document.getElementById('holdCue'),
 };
 let toastTimer = 0;
 function toast(message, duration = 2400) {
@@ -2368,6 +2746,109 @@ function toast(message, duration = 2400) {
   ui.toast.textContent = message;
   ui.toast.classList.add('show');
   toastTimer = setTimeout(() => ui.toast.classList.remove('show'), duration);
+}
+
+/* bottom-left key hints can fold away; the "?" tab brings them back */
+function setHintCollapsed(collapsed) {
+  const next = !!collapsed;
+  ui.hintCard.classList.toggle('is-collapsed', next);
+  ui.hintTab.classList.toggle('is-visible', next);
+  ui.hintTab.setAttribute('aria-hidden', String(!next));
+  ui.hintClose.setAttribute('aria-expanded', String(!next));
+}
+
+/* ---- touch layout: stick + jump button ---- */
+function enableTouchUI(on, announce = false) {
+  const next = !!on;
+  const changed = document.body.classList.contains('is-touch') !== next;
+  document.body.classList.toggle('is-touch', next);
+  if (next && changed) {
+    resizeView();
+    if (announce) toast('触屏布局已开启', 1400);
+  }
+}
+function stickReset() {
+  touchStick.pid = null;
+  touchStick.active = false;
+  touchStick.x = 0;
+  touchStick.y = 0;
+  if (ui.stickZone) ui.stickZone.classList.remove('is-active');
+  if (ui.stickKnob) {
+    ui.stickKnob.style.transition = 'transform .22s cubic-bezier(.2,.9,.3,1.4)';
+    ui.stickKnob.style.transform = 'translate(0px,0px)';
+  }
+}
+function stickUpdate(e) {
+  const zone = ui.stickZone;
+  if (!zone) return;
+  const rect = zone.getBoundingClientRect();
+  const maxRadius = Math.max(24, rect.width * 0.33);
+  let dx = e.clientX - (rect.left + rect.width / 2);
+  let dy = e.clientY - (rect.top + rect.height / 2);
+  const len = Math.hypot(dx, dy);
+  if (len > maxRadius) { dx = (dx / len) * maxRadius; dy = (dy / len) * maxRadius; }
+  if (ui.stickKnob) ui.stickKnob.style.transform = `translate(${dx}px,${dy}px)`;
+  const nx = dx / maxRadius;
+  const ny = dy / maxRadius;
+  const mag = Math.min(1, Math.hypot(nx, ny));
+  const dead = 0.14;
+  if (mag <= dead) {
+    touchStick.x = 0;
+    touchStick.y = 0;
+  } else {
+    const scaled = (mag - dead) / (1 - dead) / mag;
+    touchStick.x = nx * scaled;
+    touchStick.y = ny * scaled;
+  }
+}
+function setupTouchControls() {
+  const zone = ui.stickZone;
+  const btn = ui.jumpBtn;
+  if (zone) {
+    zone.addEventListener('pointerdown', (e) => {
+      if (touchStick.pid !== null) return;
+      e.preventDefault();
+      touchStick.pid = e.pointerId;
+      touchStick.active = true;
+      zone.classList.add('is-active');
+      if (ui.stickKnob) ui.stickKnob.style.transition = 'none';
+      try { zone.setPointerCapture(e.pointerId); } catch (_) { /* noop */ }
+      stickUpdate(e);
+    });
+    zone.addEventListener('pointermove', (e) => {
+      if (touchStick.pid !== e.pointerId) return;
+      e.preventDefault();
+      stickUpdate(e);
+    });
+    const release = (e) => {
+      if (touchStick.pid === null || (e && e.pointerId !== touchStick.pid)) return;
+      stickReset();
+    };
+    zone.addEventListener('pointerup', release);
+    zone.addEventListener('pointercancel', release);
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+  }
+  if (btn) {
+    const press = (e) => {
+      e.preventDefault();
+      char.jumpRequested = true;
+      btn.classList.add('is-down');
+      vibrate(8);
+    };
+    const release = () => btn.classList.remove('is-down');
+    btn.addEventListener('pointerdown', press);
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointercancel', release);
+    btn.addEventListener('pointerleave', release);
+  }
+  if (ui.editFab) {
+    ui.editFab.addEventListener('click', (e) => {
+      e.preventDefault();
+      vibrate(10);
+      setEditMode(!state.editMode);
+    });
+  }
 }
 
 function applyOutlineVisibility() {
@@ -2439,6 +2920,7 @@ function setPanelCollapsed(collapsed, announce = true) {
   ui.panelTab.classList.toggle('is-visible', state.panelCollapsed);
   ui.panelCollapse.setAttribute('aria-expanded', String(!state.panelCollapsed));
   ui.panelDock.inert = state.panelCollapsed;
+  document.body.classList.toggle('panel-open', !state.panelCollapsed);
   if (state.panelCollapsed) {
     ui.panelDock.setAttribute('aria-hidden', 'true');
     ui.panelTab.focus({ preventScroll: true });
@@ -2453,10 +2935,19 @@ function setEditMode(on) {
   state.editMode = !!on;
   ui.editSwitch.classList.toggle('is-on', state.editMode);
   ui.editSwitch.setAttribute('aria-checked', String(state.editMode));
+  if (ui.editFab) {
+    ui.editFab.classList.toggle('is-on', state.editMode);
+    ui.editFab.setAttribute('aria-pressed', String(state.editMode));
+    ui.editFab.textContent = state.editMode ? '雕刻中' : '雕刻';
+  }
   document.body.classList.toggle('editing', state.editMode);
   if (state.editMode) {
     pointer.dirty = true;
-    toast('雕塑模式 · 左键隆起 / 右键凹陷 · WASD 仍可移动', 3000);
+    if (document.body.classList.contains('is-touch')) {
+      toast('雕塑模式 · 单指拖动隆起 · 长按 2 秒后拖动凹陷', 3400);
+    } else {
+      toast('雕塑模式 · 左键隆起 / 右键凹陷 · 拖动空白处旋转镜头', 3200);
+    }
   } else {
     endStroke();
     hover.valid = false;
@@ -2562,6 +3053,8 @@ function setupUI() {
   syncWorldUI();
   ui.panelCollapse.addEventListener('click', () => setPanelCollapsed(true));
   ui.panelTab.addEventListener('click', () => setPanelCollapsed(false));
+  ui.hintClose.addEventListener('click', () => setHintCollapsed(true));
+  ui.hintTab.addEventListener('click', () => setHintCollapsed(false));
   ui.outlineSwitch.addEventListener('click', () => setOutline(!state.outline));
   ui.editSwitch.addEventListener('click', () => setEditMode(!state.editMode));
   ui.cameraSeg.addEventListener('click', (e) => {
@@ -2599,44 +3092,60 @@ function setupUI() {
     else if (e.code === 'KeyR') reseed();
   });
   window.addEventListener('keyup', (e) => keys.delete(e.code));
-  window.addEventListener('blur', () => keys.clear());
+  window.addEventListener('blur', () => {
+    keys.clear();
+    cancelGesture();
+    stickReset();
+    activePointers.clear();
+    pinchState = null;
+    gestureLock = false;
+  });
 
   const canvas = renderer.domElement;
-  canvas.addEventListener('pointermove', (e) => {
-    pointer.inside = true;
-    updatePointerFromEvent(e);
-  });
-  canvas.addEventListener('pointerenter', () => { pointer.inside = true; });
-  canvas.addEventListener('pointerleave', () => {
-    if (pointer.stroke) return;
-    pointer.inside = false;
-    hover.valid = false;
-    ringGroup.visible = false;
-  });
-  canvas.addEventListener('pointerdown', beginStroke);
-  window.addEventListener('pointerup', endStroke);
+  canvas.addEventListener('pointermove', onCanvasPointerMove);
+  canvas.addEventListener('pointerenter', () => { if (pointer.pid === null) pointer.inside = true; });
+  canvas.addEventListener('pointerleave', onCanvasPointerLeave);
+  canvas.addEventListener('pointerdown', onCanvasPointerDown);
+  window.addEventListener('pointerup', onCanvasPointerUp);
+  window.addEventListener('pointercancel', onCanvasPointerUp);
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   canvas.addEventListener('auxclick', (e) => e.preventDefault());
+  canvas.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
+  canvas.addEventListener('dragstart', (e) => e.preventDefault());
+  canvas.addEventListener('selectstart', (e) => e.preventDefault());
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     state.zoom = clamp(state.zoom * (1 - e.deltaY * 0.0011), 0.72, 2.1);
-    resizeView();
+    applyZoom();
   }, { passive: false });
+  document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+
+  window.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch') enableTouchUI(true);
+  }, { passive: true, capture: true });
+
+  setupTouchControls();
 }
 
 /* ------------------------------ view / resize ------------------------------ */
-function resizeView() {
+function applyZoom() {
   const w = window.innerWidth;
   const h = window.innerHeight;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setSize(w, h);
-  const aspect = w / h;
+  const aspect = w / Math.max(1, h);
   const halfH = BASE_FRUSTUM / state.zoom / 2;
   camera.left = -halfH * aspect;
   camera.right = halfH * aspect;
   camera.top = halfH;
   camera.bottom = -halfH;
   camera.updateProjectionMatrix();
+}
+function resizeView() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const touchLayout = document.body.classList.contains('is-touch');
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touchLayout ? 1.75 : 2));
+  renderer.setSize(w, h);
+  applyZoom();
 }
 window.addEventListener('resize', resizeView);
 document.addEventListener('visibilitychange', () => {
@@ -2699,6 +3208,9 @@ function init() {
   createRing();
   createTerrainMesh();
   setupUI();
+  const touchLayout = isTouchPrimary();
+  enableTouchUI(touchLayout);
+  if (touchLayout) setPanelCollapsed(true, false);
   regenerate(true);
   setOutline(true);
   setCameraMode('follow');
@@ -2718,7 +3230,10 @@ function init() {
     requestAnimationFrame(() => {
       loadingEl.classList.add('hide');
       setTimeout(() => { loadingEl.style.display = 'none'; }, 750);
-      setTimeout(() => toast('WASD 移动 · 空格跳跃 · E 开启雕塑模式', 3400), 900);
+      const tip = document.body.classList.contains('is-touch')
+        ? '左侧摇杆移动 · 右下角跳跃 · 面板里开启雕刻'
+        : 'WASD 移动 · 空格跳跃 · E 开启雕塑模式';
+      setTimeout(() => toast(tip, 3400), 900);
     });
   });
 
@@ -2759,6 +3274,14 @@ window.__TOON__ = {
   get removedProps() { return removedProps.size; },
   get patchCenter() { return { x: patchCenterX, z: patchCenterZ }; },
   get editCount() { return edits.size; },
+  get gesture() {
+    return {
+      type: pointer.type, stroke: pointer.stroke, armed: pointer.armed,
+      touch: pointer.touch, pid: pointer.pid, inside: pointer.inside,
+      zoom: +state.zoom.toFixed(3), pinching: !!pinchState, locked: gestureLock,
+    };
+  },
+  get touchStick() { return { x: +touchStick.x.toFixed(3), y: +touchStick.y.toFixed(3), active: touchStick.active }; },
   get info() {
     let min = Infinity, max = -Infinity;
     for (let i = 0; i < heights.length; i++) {
@@ -2794,6 +3317,8 @@ window.__TOON__ = {
   setAutoTime,
   setIslandSize,
   setWorldMode,
+  setPanelCollapsed,
+  enableTouchUI,
   forceRecenter() { maybeRecenter(); },
   reseedTo(seed) {
     state.seed = Number(seed) >>> 0;
