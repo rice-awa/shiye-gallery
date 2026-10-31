@@ -78,5 +78,9 @@
   "/tooncraft": {
     "hash": "8c18d76f0abb9d17e62f7bfa7f31dba2fa17f577c44cb3def1c1466b4af1553f",
     "thumbnail": "tooncraft.webp"
+  },
+  "/halo": {
+    "hash": "73667cde90856d671bd2bdef40de30cfc7881b2d2390a2f974fd46ccf83daa69",
+    "thumbnail": "halo.webp"
   }
 }

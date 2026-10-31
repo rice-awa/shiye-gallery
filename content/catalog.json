@@ -163,5 +163,15 @@
       "创意编程"
     ],
     "order": -4
+  },
+  "presentations/HALO-keynote.html": {
+    "title": "HALO / 一圈，读懂你",
+    "description": "一枚智能戒指的发布会式主题演讲：从航空级钛到整夜监测，用克制的方式讲完一圈。",
+    "tags": [
+      "产品发布",
+      "动画",
+      "技术分享"
+    ],
+    "order": -5
   }
 }
