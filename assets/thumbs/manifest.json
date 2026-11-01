@@ -82,5 +82,9 @@
   "/halo": {
     "hash": "73667cde90856d671bd2bdef40de30cfc7881b2d2390a2f974fd46ccf83daa69",
     "thumbnail": "halo.webp"
+  },
+  "/backprop": {
+    "hash": "84ae99f58e6a51e9143864ffc9d9a2ffa346ea12ed73f55ab8f3ff2ac0f325f4",
+    "thumbnail": "backprop.webp"
   }
 }
