@@ -25,3 +25,5 @@ export function filterParams(state) {
   if (state.list) params.set('view', 'list');
   return params;
 }
+// 卡片统一占 12 栏中的 4 栏（三列）；最后一行不足三张时保持同宽、左对齐。
+export function spanFor() { return 4; }

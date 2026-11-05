@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROOT, loadCollection, readJSON, treeFiles, publicWork } from './lib/collection.js';
 import { renderIndex, stylesheetURL } from './lib/render.js';
+import { prepareFonts, pageGlyphs } from './lib/fonts.js';
 import screenshots from './scripts/screenshots.js';
 
 export async function build({ root = ROOT, skipScreenshots = false, refresh = false } = {}) {
@@ -43,6 +44,9 @@ export async function build({ root = ROOT, skipScreenshots = false, refresh = fa
       else collection.warnings.push('缺少封面，使用文字占位：' + work.file);
       if (skipScreenshots && work.image && manifest[work.route]?.hash !== work.hash) collection.warnings.push('封面可能需要更新：' + work.file);
     }
+    // 先渲染一遍收集页面字符，再生成字体子集，最终页面引用新子集。
+    await prepareFonts(root, pageGlyphs(renderIndex(root, collection), fs.readFileSync(path.join(root, 'site/gallery.js'), 'utf8')));
+    if (fs.existsSync(path.join(root, 'assets/fonts'))) fs.cpSync(path.join(root, 'assets/fonts'), path.join(stage, 'fonts'), { recursive: true, filter: f => !f.endsWith('manifest.json') });
     fs.writeFileSync(path.join(stage, 'index.html'), renderIndex(root, collection));
     fs.writeFileSync(path.join(stage, 'collection.json'), JSON.stringify({ categories: collection.categories, works: collection.works.map(publicWork) }, null, 2) + '\n');
     // Replace output only after the entire new site has rendered successfully.

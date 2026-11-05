@@ -61,6 +61,17 @@ content/games/my-game/
 
 路由不写 .html 或末尾斜杠，文件夹作品链接自动补斜杠。重名、越界、占用首页或保留路径会在构建前报错。原有 13 个作品保留原地址，包括 `/UDP` 的大小写。
 
+## 字体
+
+首页字体是自托管子集，产物 `assets/fonts/*.woff2` 与 `manifest.json` 要提交。构建时按页面实际出现的字符生成中文子集；新增作品带来新字时需要本地有源字体：
+
+```bash
+npm run fonts:fetch   # 下载 OFL 源字体到 .cache/fonts-src（约 25MB，不入库）
+npm run build:fast    # 重新生成子集
+```
+
+缺少源字体时构建会复用已有子集，新字回退系统字体。
+
 ## 本地预览
 
 需要 Node.js 22+。
